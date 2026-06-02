@@ -14,6 +14,7 @@ env/
 # IDE / OS
 .vscode/
 .idea/
+.claude/
 *.swp
 Thumbs.db
 Desktop.ini
@@ -22,3 +23,6 @@ Desktop.ini
 dist/
 build/
 *.egg-info/
+
+# Backend
+backend/

@@ -1,0 +1,8 @@
+{
+  "name": "desarrollo_lote",
+  "private": true,
+  "scripts": {
+    "start": "npm start --prefix mobile",
+    "mobile": "npm start --prefix mobile"
+  }
+}
