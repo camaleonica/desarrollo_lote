@@ -12,6 +12,17 @@ npm start
 
 Si probás en el celular, cambiá la IP en `mobile/src/config/api.js`.
 
+### Backend (rama desarrollo-daniel)
+
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm start
+```
+
+API en `http://localhost:3000` (o el puerto definido en `.env`). Usa MySQL — ver `backend/src/config/schema.sql`.
+
 ## Qué ya hice
 
 Armé la app en **React Native + Expo** siguiendo los wireframes (WF-01 a WF-16). Por ahora tengo andando:
@@ -31,7 +42,7 @@ La navegación va de login → home → subasta → puja → resumen. Cuando el 
 - Pantalla de **multas** (WF-13)
 - Completar campos que faltan en registro, medios de pago, home y perfil según el wireframe
 - Pulir WF-09 (timer, streaming) y métricas de mis pujas
-- Backend + SQLite (auth, subastas, pujas, artículos, pagos, etc.)
+- Integrar mobile con el backend (auth, subastas, pujas, artículos, pagos)
 
 ---
 

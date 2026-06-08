@@ -25,4 +25,7 @@ build/
 *.egg-info/
 
 # Backend
-backend/
+backend/.env
+backend/data/
+backend/uploads/dni/*
+!backend/uploads/dni/.gitkeep
