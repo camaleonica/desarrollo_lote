@@ -8,9 +8,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Button } from '../../components/Button';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
+import { Button } from '../../components/ui/Button';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
 import { Surface } from '../../components/m3/Surface';
 import { SummaryRow } from '../../components/m3/SummaryRow';
 import { OptionCard } from '../../components/m3/OptionCard';
@@ -19,7 +19,7 @@ import { colors, spacing, typography } from '../../theme';
 import { fetchAuction } from '../../services/loteApi';
 import { getAuctionImageSource } from '../../assets/auctionImages';
 import { formatCurrency } from '../../utils/validation';
-import { svgAssets } from '../../assets/svg';
+import { svgAssets } from '../../assets/icons';
 
 const COMMISSION_RATE = 0.1;
 

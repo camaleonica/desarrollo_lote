@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
-import { Button } from '../../components/Button';
+import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { Button } from '../../components/ui/Button';
 import { colors, spacing, typography } from '../../theme';
-import { fetchPaymentMethods } from '../../services/loteApi';
+import { fetchPaymentMethods, deletePaymentMethod } from '../../services/loteApi';
 import { ApiError } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 
-export function PaymentMethodsScreen({ navigation }) {
+export function PaymentMethodsScreen({ navigation, route }) {
+  const { pendingPaymentSetup, completeRegistration } = useAuth();
+  const fromRegistration = Boolean(pendingPaymentSetup || route.params?.fromRegistration);
   const { showDialog } = useDialog();
   const [methods, setMethods] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [continuing, setContinuing] = useState(false);
 
   async function load() {
     try {
@@ -28,17 +33,88 @@ export function PaymentMethodsScreen({ navigation }) {
   }
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', load);
+    const unsubscribe = navigation.addListener('focus', () => {
+      setLoading(true);
+      load();
+    });
     return unsubscribe;
   }, [navigation]);
+
+  async function handleDelete(id) {
+    showDialog({
+      title: 'Eliminar medio',
+      message: '¿Querés eliminar este medio de pago?',
+      variant: 'warning',
+      buttons: [
+        { text: 'Cancelar', style: 'outline' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletePaymentMethod(id);
+              await load();
+            } catch (error) {
+              showDialog({
+                title: 'Error',
+                message: error instanceof ApiError ? error.message : 'No se pudo eliminar',
+                variant: 'error',
+              });
+            }
+          },
+        },
+      ],
+    });
+  }
+
+  async function handleContinue() {
+    setContinuing(true);
+    try {
+      const latestMethods = await fetchPaymentMethods();
+      setMethods(latestMethods);
+
+      if (latestMethods.length === 0) {
+        showDialog({
+          title: 'Medio de pago requerido',
+          message: 'Agregá al menos un medio de pago para continuar.',
+          variant: 'info',
+        });
+        return;
+      }
+
+      if (fromRegistration) {
+        await completeRegistration();
+        return;
+      }
+
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+
+      showDialog({
+        title: 'Listo',
+        message: 'Tus medios de pago quedaron guardados.',
+        variant: 'success',
+      });
+    } catch (error) {
+      showDialog({
+        title: 'Error',
+        message: error instanceof ApiError ? error.message : 'No se pudo continuar',
+        variant: 'error',
+      });
+    } finally {
+      setContinuing(false);
+    }
+  }
 
   return (
     <ScreenLayout shape="lavender" safe>
       <ScreenHeader
         title="Medios de pago"
-        subtitle="Administrá tus métodos"
+        subtitle={fromRegistration ? 'Paso final del registro' : 'Administrá tus métodos'}
         shape="brown"
-        onBack={() => navigation.goBack()}
+        onBack={fromRegistration ? undefined : () => navigation.goBack()}
         embedded
       />
       <View style={styles.content}>
@@ -48,14 +124,31 @@ export function PaymentMethodsScreen({ navigation }) {
           ListEmptyComponent={<Text style={styles.empty}>Todavía no agregaste medios de pago</Text>}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>{item.tipo}</Text>
-              <Text style={styles.cardMeta}>Titular: {item.titular}</Text>
-              <Text style={styles.cardMeta}>Terminada en {item.ultimos_digitos}</Text>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.label || item.tipo}</Text>
+                <Pressable onPress={() => handleDelete(item.id)} hitSlop={8}>
+                  <MaterialIcons name="delete-outline" size={22} color={colors.error} />
+                </Pressable>
+              </View>
+              <Text style={styles.cardMeta}>Tipo: {item.tipo}</Text>
+              <Text style={styles.cardMeta}>Moneda: {item.moneda}</Text>
+              <Text style={styles.cardMeta}>Estado: {item.estado}</Text>
             </View>
           )}
         />
-        <Button title="Agregar medio de pago" onPress={() => navigation.navigate('AddPayment')} />
-        <Button title="Continuar" variant="outline" onPress={() => navigation.goBack()} disabled={loading} />
+        <Button
+          title="Agregar medio de pago"
+          onPress={() =>
+            navigation.navigate('AddPayment', fromRegistration ? { fromRegistration: true } : undefined)
+          }
+        />
+        <Button
+          title={fromRegistration ? 'Continuar al inicio' : 'Continuar'}
+          variant="outline"
+          onPress={handleContinue}
+          loading={continuing}
+          disabled={continuing}
+        />
       </View>
     </ScreenLayout>
   );
@@ -71,7 +164,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  cardTitle: { ...typography.bodyBold, color: colors.brown },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: { ...typography.bodyBold, color: colors.brown, flex: 1 },
   cardMeta: { ...typography.captionMd, marginTop: 4 },
   empty: { ...typography.captionMd, textAlign: 'center', marginVertical: spacing.lg },
 });

@@ -1,4 +1,5 @@
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { TextInput } from '../ui/LotteText';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme';
 

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
-import { Input } from '../../components/Input';
-import { Button } from '../../components/Button';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 import { spacing } from '../../theme';
 import { validateNewItem } from '../../utils/validation';
 import { createItem } from '../../services/loteApi';
 import { ApiError } from '../../services/api';
-import { SvgAsset } from '../../components/SvgAsset';
+import { SvgAsset } from '../../components/icons/SvgAsset';
 import { useDialog } from '../../context/DialogContext';
 
 export function NewItemScreen({ navigation }) {

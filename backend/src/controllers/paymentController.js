@@ -8,13 +8,17 @@ const list = async (req, res) => {
   try {
     const [rows] = await db.execute(
       `SELECT id, type, label, currency, card_brand, card_last4,
-              card_exp_month, card_exp_year, bank_name, account_number
+              card_exp_month, card_exp_year, bank_name, account_number, is_active
        FROM payment_methods
        WHERE user_id = ? AND is_active = 1
        ORDER BY created_at DESC`,
       [req.user.id]
     );
-    return res.json({ payment_methods: rows });
+    const payment_methods = rows.map((row) => ({
+      ...row,
+      status: row.is_active ? 'activo' : 'inactivo',
+    }));
+    return res.json({ payment_methods });
   } catch (err) {
     console.error('[list payments]', err);
     return res.status(500).json({ message: 'Error interno del servidor' });

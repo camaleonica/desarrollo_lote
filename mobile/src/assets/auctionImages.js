@@ -1,14 +1,14 @@
 const images = {
-  1: require('../../assets/auctions/auction-1.webp'),
-  2: require('../../assets/auctions/auction-2.webp'),
-  3: require('../../assets/auctions/auction-3.webp'),
-  4: require('../../assets/auctions/auction-4.webp'),
-  5: require('../../assets/auctions/auction-5.webp'),
-  'auction-1': require('../../assets/auctions/auction-1.webp'),
-  'auction-2': require('../../assets/auctions/auction-2.webp'),
-  'auction-3': require('../../assets/auctions/auction-3.webp'),
-  'auction-4': require('../../assets/auctions/auction-4.webp'),
-  'auction-5': require('../../assets/auctions/auction-5.webp'),
+  1: require('../../assets/images/auctions/auction-1.webp'),
+  2: require('../../assets/images/auctions/auction-2.webp'),
+  3: require('../../assets/images/auctions/auction-3.webp'),
+  4: require('../../assets/images/auctions/auction-4.webp'),
+  5: require('../../assets/images/auctions/auction-5.webp'),
+  'auction-1': require('../../assets/images/auctions/auction-1.webp'),
+  'auction-2': require('../../assets/images/auctions/auction-2.webp'),
+  'auction-3': require('../../assets/images/auctions/auction-3.webp'),
+  'auction-4': require('../../assets/images/auctions/auction-4.webp'),
+  'auction-5': require('../../assets/images/auctions/auction-5.webp'),
 };
 
 export function getAuctionImageSource(auction) {

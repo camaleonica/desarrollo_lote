@@ -1,49 +1,88 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, KeyboardAvoidingView, Platform, View, TouchableOpacity } from 'react-native';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
-import { Input } from '../../components/Input';
-import { Button } from '../../components/Button';
-import { spacing } from '../../theme';
+import { ScrollView, StyleSheet, KeyboardAvoidingView, Platform, View, TouchableOpacity, Text } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
+import { spacing, typography, colors } from '../../theme';
 import { addPaymentMethod } from '../../services/loteApi';
 import { ApiError } from '../../services/api';
-import { svgAssets } from '../../assets/svg';
 import { useDialog } from '../../context/DialogContext';
 
 const PAYMENT_TYPES = [
-  { id: 'Tarjeta de crédito', label: 'Tarjeta de crédito', Icon: svgAssets.tarjetaCredito },
-  { id: 'Cuenta bancaria', label: 'Cuenta bancaria', Icon: svgAssets.cuentaBancaria },
-  { id: 'Cheque certificado', label: 'Cheque certificado', Icon: svgAssets.chequeCertificado },
+  { id: 'credit_card', label: 'Tarjeta de crédito', icon: 'credit-card' },
+  { id: 'bank_account', label: 'Cuenta bancaria', icon: 'account-balance' },
 ];
 
-export function AddPaymentScreen({ navigation }) {
+const CURRENCIES = [
+  { id: 'ARS', label: 'Pesos' },
+  { id: 'USD', label: 'Dólares' },
+];
+
+export function AddPaymentScreen({ navigation, route }) {
+  const fromRegistration = Boolean(route.params?.fromRegistration);
   const { showDialog } = useDialog();
-  const [tipo, setTipo] = useState('Tarjeta de crédito');
-  const [titular, setTitular] = useState('');
+  const [type, setType] = useState('credit_card');
+  const [currency, setCurrency] = useState('ARS');
+  const [banco, setBanco] = useState('');
+  const [numeroCuenta, setNumeroCuenta] = useState('');
   const [ultimosDigitos, setUltimosDigitos] = useState('');
+  const [marcaTarjeta, setMarcaTarjeta] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  const selected = PAYMENT_TYPES.find((item) => item.id === tipo) || PAYMENT_TYPES[0];
-  const PreviewIcon = selected.Icon;
+  const isCard = type === 'credit_card';
+
+  function handleTypeChange(nextType) {
+    if (nextType === type) return;
+    setType(nextType);
+    setErrors({});
+    setBanco('');
+    setNumeroCuenta('');
+    setUltimosDigitos('');
+    setMarcaTarjeta('');
+  }
 
   async function handleSave() {
     const nextErrors = {};
-    if (!titular.trim()) nextErrors.titular = 'El titular es obligatorio';
-    if (!ultimosDigitos.trim()) nextErrors.ultimos_digitos = 'Los últimos dígitos son obligatorios';
-    else if (ultimosDigitos.trim().length < 4) nextErrors.ultimos_digitos = 'Ingresá al menos 4 dígitos';
-    if (!tipo.trim()) nextErrors.tipo = 'El tipo es obligatorio';
+    if (isCard) {
+      if (!ultimosDigitos.trim()) nextErrors.ultimos_digitos = 'Los últimos 4 dígitos son obligatorios';
+      else if (ultimosDigitos.trim().length !== 4) nextErrors.ultimos_digitos = 'Ingresá exactamente 4 dígitos';
+    } else {
+      if (!banco.trim()) nextErrors.banco = 'El banco es obligatorio';
+      if (!numeroCuenta.trim()) nextErrors.numero_cuenta = 'El número de cuenta es obligatorio';
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
     setLoading(true);
     try {
-      await addPaymentMethod({ tipo, titular, ultimos_digitos: ultimosDigitos });
+      await addPaymentMethod({
+        type,
+        currency,
+        card_brand: marcaTarjeta || 'Tarjeta',
+        card_last4: ultimosDigitos,
+        bank_name: banco,
+        account_number: numeroCuenta,
+      });
       showDialog({
         title: 'Guardado',
         message: 'Medio de pago agregado correctamente',
         variant: 'success',
-        buttons: [{ text: 'Entendido', style: 'primary', onPress: () => navigation.goBack() }],
+        buttons: [
+          {
+            text: 'Entendido',
+            style: 'primary',
+            onPress: () => {
+              if (fromRegistration) {
+                navigation.navigate('PaymentMethods', { fromRegistration: true });
+              } else {
+                navigation.goBack();
+              }
+            },
+          },
+        ],
       });
     } catch (error) {
       if (error instanceof ApiError && error.errors) setErrors(error.errors);
@@ -64,32 +103,72 @@ export function AddPaymentScreen({ navigation }) {
           embedded
         />
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Text style={styles.sectionLabel}>Tipo de medio</Text>
           <View style={styles.typeRow}>
-            {PAYMENT_TYPES.map(({ id, label, Icon }) => (
+            {PAYMENT_TYPES.map(({ id, label, icon }) => {
+              const active = type === id;
+              return (
+                <TouchableOpacity
+                  key={id}
+                  style={[styles.typeChip, active && styles.typeChipActive]}
+                  onPress={() => handleTypeChange(id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={[styles.typeIconWrap, active && styles.typeIconWrapActive]}>
+                    <MaterialIcons name={icon} size={22} color={active ? colors.white : colors.brown} />
+                  </View>
+                  <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.sectionLabel}>Moneda</Text>
+          <View style={styles.currencyRow}>
+            {CURRENCIES.map(({ id, label }) => (
               <TouchableOpacity
                 key={id}
-                style={[styles.typeChip, tipo === id && styles.typeChipActive]}
-                onPress={() => setTipo(id)}
+                style={[styles.currencyChip, currency === id && styles.currencyChipActive]}
+                onPress={() => setCurrency(id)}
               >
-                <Icon width={72} height={28} />
+                <Text style={[styles.currencyText, currency === id && styles.currencyTextActive]}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <View style={styles.preview}>
-            <PreviewIcon width="100%" height={72} />
-          </View>
+          {isCard ? (
+            <>
+              <Input
+                label="Marca de la tarjeta (opcional)"
+                value={marcaTarjeta}
+                onChangeText={setMarcaTarjeta}
+                placeholder="Visa, Mastercard..."
+                optional
+              />
+              <Input
+                label="Últimos 4 dígitos"
+                value={ultimosDigitos}
+                onChangeText={setUltimosDigitos}
+                placeholder="1234"
+                keyboardType="numeric"
+                maxLength={4}
+                error={errors.ultimos_digitos || errors.card_last4}
+              />
+            </>
+          ) : (
+            <>
+              <Input label="Banco" value={banco} onChangeText={setBanco} placeholder="Banco Nación" error={errors.banco} />
+              <Input
+                label="Número de cuenta"
+                value={numeroCuenta}
+                onChangeText={setNumeroCuenta}
+                placeholder="1234567890"
+                keyboardType="numeric"
+                error={errors.numero_cuenta || errors.account_number}
+              />
+            </>
+          )}
 
-          <Input label="Tipo" value={tipo} onChangeText={setTipo} placeholder="Tarjeta / Cuenta bancaria" error={errors.tipo} />
-          <Input label="Titular" value={titular} onChangeText={setTitular} placeholder="Nombre del titular" error={errors.titular} />
-          <Input
-            label="Últimos dígitos"
-            value={ultimosDigitos}
-            onChangeText={setUltimosDigitos}
-            placeholder="1234"
-            keyboardType="numeric"
-            error={errors.ultimos_digitos}
-          />
           <Button title="Guardar" onPress={handleSave} loading={loading} />
           <Button title="Cancelar" variant="outline" onPress={() => navigation.goBack()} />
         </ScrollView>
@@ -100,21 +179,56 @@ export function AddPaymentScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.sm },
-  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+  container: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
+  sectionLabel: { ...typography.label, color: colors.textMuted, marginTop: spacing.xs },
+  typeRow: { flexDirection: 'row', gap: spacing.sm },
   typeChip: {
-    padding: spacing.sm,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0D5DB',
-    backgroundColor: '#FFFFFF',
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   typeChipActive: {
-    borderColor: '#5C2A20',
+    borderColor: colors.brown,
     backgroundColor: '#F8F4F6',
   },
-  preview: {
-    marginBottom: spacing.md,
+  typeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${colors.lightBlue}55`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeIconWrapActive: {
+    backgroundColor: colors.brown,
+  },
+  chipLabel: {
+    ...typography.captionMd,
+    fontSize: 12,
+    textAlign: 'center',
+    color: colors.text,
+  },
+  chipLabelActive: {
+    ...typography.label,
+    fontSize: 12,
+    color: colors.brown,
+  },
+  currencyRow: { flexDirection: 'row', gap: spacing.sm },
+  currencyChip: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.brown,
     alignItems: 'center',
   },
+  currencyChipActive: { backgroundColor: colors.brown },
+  currencyText: { ...typography.label, color: colors.brown },
+  currencyTextActive: { color: colors.white },
 });

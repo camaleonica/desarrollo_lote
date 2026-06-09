@@ -1,9 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const express = require('express');
 const helmet  = require('helmet');
 const cors    = require('cors');
-const path    = require('path');
 
 const authRoutes    = require('./routes/auth');
 const userRoutes    = require('./routes/users');
@@ -46,9 +46,17 @@ app.use((err, _req, res, _next) => {
 });
 
 // ── Iniciar servidor ──────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 3000;
+const server = app.listen(PORT, () => {
   console.log(`🚀  Servidor corriendo en http://localhost:${PORT}`);
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌  El puerto ${PORT} ya está en uso.`);
+    console.error('   Cerrá la instancia anterior del backend o cambiá PORT en backend/.env');
+    process.exit(1);
+  }
+  throw err;
+});
 module.exports = app;

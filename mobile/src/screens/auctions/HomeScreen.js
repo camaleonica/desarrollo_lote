@@ -3,9 +3,9 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } f
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
-import { AuctionCard } from '../../components/AuctionCard';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { AuctionCard } from '../../components/auction/AuctionCard';
 import { SearchBar } from '../../components/m3/SearchBar';
 import { FilterChip } from '../../components/m3/FilterChip';
 import { Surface } from '../../components/m3/Surface';
@@ -118,7 +118,8 @@ export function HomeScreen({ navigation }) {
         ListEmptyComponent={
           <Surface style={styles.emptyCard}>
             <MaterialIcons name="inventory-2" size={32} color={colors.textMuted} />
-            <Text style={styles.empty}>No hay subastas para mostrar</Text>
+            <Text style={styles.empty}>No hay subastas todavía</Text>
+            <Text style={styles.emptyHint}>El módulo de subastas lo agrega el backend de Daniel</Text>
           </Surface>
         }
       />
@@ -149,4 +150,5 @@ const styles = StyleSheet.create({
   sectionCount: { ...typography.label, color: colors.teal },
   emptyCard: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
   empty: { ...typography.captionMd, textAlign: 'center' },
+  emptyHint: { ...typography.captionMd, textAlign: 'center', fontSize: 12, color: colors.textMuted },
 });

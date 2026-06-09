@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { Input } from '../../components/Input';
-import { Button } from '../../components/Button';
-import { ScreenLayout } from '../../components/ScreenLayout';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { validateLoginForm } from '../../utils/validation';
-import { login } from '../../services/loteApi';
+import { login, fetchPaymentMethods } from '../../services/loteApi';
 import { ApiError } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 
 export function LoginScreen({ navigation }) {
-  const { setUser } = useAuth();
+  const { setUser, setPendingPaymentSetup } = useAuth();
   const { showDialog } = useDialog();
-  const [email, setEmail] = useState('demo@lote.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -27,9 +27,22 @@ export function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const data = await login(email, password);
-      setUser(data.user);
+      const methods = await fetchPaymentMethods();
+      if (methods.length === 0) {
+        setPendingPaymentSetup(true);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'PaymentMethods', params: { fromRegistration: true } }],
+        });
+        return;
+      }
+      setPendingPaymentSetup(false);
+      setUser({
+        ...data.user,
+        id: data.user?.id != null ? Number(data.user.id) : data.user?.id,
+      });
     } catch (error) {
-      if (error instanceof ApiError && error.code === 'INVALID_CREDENTIALS') {
+      if (error instanceof ApiError && error.status === 401) {
         showDialog({ title: 'Error', message: 'Usuario o contraseña incorrectos', variant: 'error' });
       } else {
         showDialog({ title: 'Error', message: error.message || 'No se pudo iniciar sesión', variant: 'error' });

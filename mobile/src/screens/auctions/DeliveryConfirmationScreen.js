@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Button } from '../../components/Button';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
+import { Button } from '../../components/ui/Button';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
 import { Surface } from '../../components/m3/Surface';
 import { ListTile } from '../../components/m3/ListTile';
 import { SummaryRow } from '../../components/m3/SummaryRow';

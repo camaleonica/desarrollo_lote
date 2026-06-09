@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
-import { Input } from '../../components/Input';
-import { Button } from '../../components/Button';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 import { spacing } from '../../theme';
 import { validateEmail } from '../../utils/validation';
 import { forgotPassword } from '../../services/loteApi';

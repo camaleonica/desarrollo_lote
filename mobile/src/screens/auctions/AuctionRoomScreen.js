@@ -9,10 +9,10 @@ import {
   Linking,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
 import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';
 import { fetchAuction, placeBid } from '../../services/loteApi';

@@ -6,6 +6,7 @@ const {
   verifyRefreshToken,
   refreshExpiresAt,
 } = require('../utils/jwt');
+const { generateProvisionalPassword } = require('../utils/password');
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -27,24 +28,23 @@ const issueTokens = async (user) => {
 
 /**
  * POST /auth/register
- * Body: { email, password }
+ * Body: { email }
+ * Crea la cuenta con contraseña provisoria generada por el servidor.
  */
 const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { email } = req.body;
 
   try {
-    // Verificar si el email ya existe
     const [existing] = await db.execute(
       'SELECT id FROM users WHERE email = ?', [email]
     );
     if (existing.length > 0) {
-      return res.status(409).json({ message: 'El email ya está registrado' });
+      return res.status(409).json({ message: 'El email ya está registrado', code: 'EMAIL_EXISTS' });
     }
 
-    // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const provisionalPassword = generateProvisionalPassword();
+    const hashedPassword = await bcrypt.hash(provisionalPassword, 12);
 
-    // Crear usuario
     const [result] = await db.execute(
       'INSERT INTO users (email, password) VALUES (?, ?)',
       [email, hashedPassword]
@@ -53,14 +53,61 @@ const register = async (req, res) => {
     const user = { id: result.insertId, email };
     const { accessToken, refreshToken } = await issueTokens(user);
 
+    console.log(`[register] Contraseña provisoria para ${email}: ${provisionalPassword}`);
+
     return res.status(201).json({
-      message: 'Usuario registrado correctamente',
+      message: 'Cuenta creada. Usá la contraseña provisoria para definir tu contraseña definitiva.',
       user: { id: user.id, email: user.email, status: 'pending' },
+      provisionalPassword,
       accessToken,
       refreshToken,
     });
   } catch (err) {
     console.error('[register]', err);
+    return res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+/**
+ * POST /auth/change-password
+ * Body: { current_password, new_password }
+ * Reemplaza la contraseña provisoria por la definitiva del usuario.
+ */
+const changePassword = async (req, res) => {
+  const { current_password, new_password } = req.body;
+
+  try {
+    const [rows] = await db.execute(
+      'SELECT id, email, password, status FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    const user = rows[0];
+    const matches = await bcrypt.compare(current_password, user.password);
+    if (!matches) {
+      return res.status(401).json({ message: 'La contraseña provisoria no es correcta' });
+    }
+
+    if (current_password === new_password) {
+      return res.status(422).json({ message: 'La nueva contraseña debe ser distinta a la provisoria' });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 12);
+    await db.execute(
+      "UPDATE users SET password = ?, status = 'verified' WHERE id = ?",
+      [hashedPassword, user.id]
+    );
+
+    return res.json({
+      message: 'Contraseña actualizada correctamente',
+      user: { id: user.id, email: user.email, status: 'verified' },
+    });
+  } catch (err) {
+    console.error('[changePassword]', err);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
@@ -170,4 +217,26 @@ const logout = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refresh, logout };
+/**
+ * POST /auth/forgot-password
+ * Body: { email }
+ */
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const [rows] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (rows.length > 0) {
+      console.log(`[forgot-password] Solicitud para ${email} (usuario id ${rows[0].id})`);
+    }
+    return res.json({
+      message:
+        'Si el email está registrado, recibirás un enlace para restablecer tu contraseña en los próximos minutos.',
+    });
+  } catch (err) {
+    console.error('[forgotPassword]', err);
+    return res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { register, login, refresh, logout, forgotPassword, changePassword };

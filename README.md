@@ -1,7 +1,5 @@
 # Loté
 
-Proyecto de subastas para la materia. Yo me encargo del **mobile y la UI**.
-
 ## Cómo levantar la app
 
 ```bash
@@ -12,16 +10,29 @@ npm start
 
 Si probás en el celular, cambiá la IP en `mobile/src/config/api.js`.
 
-### Backend (rama desarrollo-daniel)
+### Backend
+
+**1. Instalar MySQL** (si no lo tenés):
+
+- Opción fácil: [XAMPP](https://www.apachefriends.org/) → instalá y en el panel iniciá **MySQL**
+- Opción directa: [MySQL Community Server](https://dev.mysql.com/downloads/mysql/)
+
+**2. Configurar y levantar:**
 
 ```bash
 cd backend
-cp .env.example .env
+cp .env.example .env   # en Windows: Copy-Item .env.example .env
+```
+
+Editá `backend/.env` con tu usuario y contraseña de MySQL (`DB_PASSWORD`).
+
+```bash
 npm install
+npm run setup:db    # crea lote_db y las tablas
 npm start
 ```
 
-API en `http://localhost:3000` (o el puerto definido en `.env`). Usa MySQL — ver `backend/src/config/schema.sql`.
+API en `http://localhost:3006` (puerto definido en `.env`).
 
 ## Qué ya hice
 
@@ -31,10 +42,10 @@ Armé la app en **React Native + Expo** siguiendo los wireframes (WF-01 a WF-16)
 - **Subastas:** home con búsqueda y filtros, detalle de pieza, sala en vivo (puja + diálogos propios), resumen de compra y confirmación de entrega
 - **Resto:** mis pujas, solicitud y listado de artículos, perfil
 - **Diseño:** paleta del Figma (celeste, rosita, bordó), tipografía Roboto, componentes M3 (`Surface`, chips, tiles, etc.), popups custom en lugar de los `Alert` nativos
-- **Assets:** SVGs organizados en `mobile/assets/svg/` y referencia en `assets/svg/`
+- **Estructura:** ver [docs/estructura.md](docs/estructura.md)
 - **Docs:** wireframes, mapa de pantallas y manejo de errores en `docs/`
 
-La navegación va de login → home → subasta → puja → resumen. Cuando el backend esté corriendo, el usuario demo es `demo@lote.com` / `123456`.
+La navegación va de login → home → subasta → puja → resumen. Registrate con email y contraseña (mín. 8 caracteres + un número).
 
 ## Qué falta
 
@@ -46,4 +57,4 @@ La navegación va de login → home → subasta → puja → resumen. Cuando el 
 
 ---
 
-Más detalle pantalla por pantalla: [docs/mapa-pantallas.md](docs/mapa-pantallas.md) · [docs/wireframes.md](docs/wireframes.md)
+Más detalle: [docs/estructura.md](docs/estructura.md) · [docs/manejo-errores.md](docs/manejo-errores.md) · [docs/mapa-pantallas.md](docs/mapa-pantallas.md) · [docs/wireframes.md](docs/wireframes.md)

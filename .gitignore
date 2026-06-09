@@ -24,6 +24,10 @@ dist/
 build/
 *.egg-info/
 
+# Expo local
+mobile/expo-qr.png
+mobile/expo-qr.html
+
 # Backend
 backend/.env
 backend/data/

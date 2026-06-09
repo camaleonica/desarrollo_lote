@@ -1,4 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterStep1Screen } from '../screens/auth/RegisterStep1Screen';
 import { RegisterStep2Screen } from '../screens/auth/RegisterStep2Screen';
@@ -15,13 +16,22 @@ import { NewItemScreen } from '../screens/items/NewItemScreen';
 const Stack = createNativeStackNavigator();
 
 export function AuthStack() {
+  const { pendingPaymentSetup } = useAuth();
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={pendingPaymentSetup ? 'PaymentMethods' : 'Login'}
+    >
+      <Stack.Screen
+        name="PaymentMethods"
+        component={PaymentMethodsScreen}
+        initialParams={pendingPaymentSetup ? { fromRegistration: true } : undefined}
+      />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RegisterStep1" component={RegisterStep1Screen} />
       <Stack.Screen name="RegisterStep2" component={RegisterStep2Screen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
       <Stack.Screen name="AddPayment" component={AddPaymentScreen} />
     </Stack.Navigator>
   );

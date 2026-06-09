@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { ScreenHeader } from '../../components/ScreenHeader';
-import { ScreenLayout } from '../../components/ScreenLayout';
-import { Button } from '../../components/Button';
+import { ScreenHeader } from '../../components/layout/ScreenHeader';
+import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { Button } from '../../components/ui/Button';
 import { ListTile } from '../../components/m3/ListTile';
 import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';

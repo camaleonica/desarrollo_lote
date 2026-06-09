@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import { HomeScreen } from '../screens/auctions/HomeScreen';
 import { ActivitiesScreen } from '../screens/activities/ActivitiesScreen';
 import { ItemsScreen } from '../screens/items/ItemsScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { colors, fonts } from '../theme';
+import { useAuth } from '../context/AuthContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -13,6 +16,15 @@ function TabBarIcon({ name, color, size = 26 }) {
 }
 
 export function MainTabs() {
+  const navigation = useNavigation();
+  const { initialAppRoute, setInitialAppRoute } = useAuth();
+
+  useEffect(() => {
+    if (!initialAppRoute) return;
+    navigation.getParent()?.navigate(initialAppRoute);
+    setInitialAppRoute(null);
+  }, [initialAppRoute, navigation, setInitialAppRoute]);
+
   return (
     <Tab.Navigator
       screenOptions={{

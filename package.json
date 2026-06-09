@@ -5,6 +5,7 @@
     "start": "npm start --prefix mobile",
     "mobile": "npm start --prefix mobile",
     "backend": "npm start --prefix backend",
-    "dev:backend": "npm run dev --prefix backend"
+    "dev:backend": "npm run dev --prefix backend",
+    "setup:db": "npm run setup:db --prefix backend"
   }
 }
