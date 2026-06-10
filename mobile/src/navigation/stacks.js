@@ -7,21 +7,27 @@ import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { PaymentMethodsScreen } from '../screens/auth/PaymentMethodsScreen';
 import { AddPaymentScreen } from '../screens/auth/AddPaymentScreen';
 import { MainTabs } from './MainTabs';
+import { AuctionCatalogScreen } from '../screens/auctions/AuctionCatalogScreen';
 import { AuctionDetailScreen } from '../screens/auctions/AuctionDetailScreen';
 import { AuctionRoomScreen } from '../screens/auctions/AuctionRoomScreen';
 import { WonAuctionScreen } from '../screens/auctions/WonAuctionScreen';
 import { DeliveryConfirmationScreen } from '../screens/auctions/DeliveryConfirmationScreen';
+import { FinesScreen } from '../screens/activities/FinesScreen';
 import { NewItemScreen } from '../screens/items/NewItemScreen';
 
 const Stack = createNativeStackNavigator();
 
 export function AuthStack() {
-  const { pendingPaymentSetup } = useAuth();
+  const { pendingPaymentSetup, authEntryRoute } = useAuth();
+
+  const initialRouteName = pendingPaymentSetup
+    ? 'PaymentMethods'
+    : authEntryRoute || 'Login';
 
   return (
     <Stack.Navigator
       screenOptions={{ headerShown: false }}
-      initialRouteName={pendingPaymentSetup ? 'PaymentMethods' : 'Login'}
+      initialRouteName={initialRouteName}
     >
       <Stack.Screen
         name="PaymentMethods"
@@ -41,11 +47,13 @@ export function AppStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={MainTabs} />
+      <Stack.Screen name="AuctionCatalog" component={AuctionCatalogScreen} />
       <Stack.Screen name="AuctionDetail" component={AuctionDetailScreen} />
       <Stack.Screen name="AuctionRoom" component={AuctionRoomScreen} />
       <Stack.Screen name="WonAuction" component={WonAuctionScreen} />
       <Stack.Screen name="DeliveryConfirmation" component={DeliveryConfirmationScreen} />
       <Stack.Screen name="NewItem" component={NewItemScreen} />
+      <Stack.Screen name="Fines" component={FinesScreen} />
       <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
       <Stack.Screen name="AddPayment" component={AddPaymentScreen} />
     </Stack.Navigator>

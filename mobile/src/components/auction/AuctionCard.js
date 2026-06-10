@@ -4,13 +4,21 @@ import { getAuctionImageSource } from '../../assets/auctionImages';
 import { colors, radius, spacing, typography } from '../../theme';
 import { formatCurrency } from '../../utils/validation';
 
-export function AuctionCard({ auction, onPress }) {
+export function AuctionCard({ auction, onPress, locked = false }) {
+  const isLocked = locked || auction.bloqueada;
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, isLocked && styles.cardLocked, pressed && styles.pressed]}
       onPress={onPress}
     >
-      <Image source={getAuctionImageSource(auction)} style={styles.image} resizeMode="cover" />
+      <Image source={getAuctionImageSource(auction)} style={[styles.image, isLocked && styles.imageLocked]} resizeMode="cover" />
+      {isLocked ? (
+        <View style={styles.lockBadge}>
+          <MaterialIcons name="lock" size={14} color={colors.white} />
+          <Text style={styles.lockText}>Categoría insuficiente</Text>
+        </View>
+      ) : null}
       <View style={styles.content}>
         <View style={styles.row}>
           <View style={styles.badge}>
@@ -46,6 +54,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.lavender,
+    position: 'relative',
     shadowColor: colors.brown,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -53,11 +62,26 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   pressed: { opacity: 0.94 },
+  cardLocked: { opacity: 0.92 },
   image: {
     width: '100%',
     height: 180,
     backgroundColor: colors.lavender,
   },
+  imageLocked: { opacity: 0.55 },
+  lockBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(92, 64, 51, 0.88)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+  },
+  lockText: { ...typography.captionMd, fontSize: 11, color: colors.white },
   content: {
     padding: spacing.md,
   },

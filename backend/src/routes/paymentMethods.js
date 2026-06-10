@@ -25,8 +25,8 @@ router.post(
   '/',
   [
     body('type')
-      .isIn(['credit_card', 'bank_account'])
-      .withMessage('Tipo inválido. Usá credit_card o bank_account'),
+      .isIn(['credit_card', 'bank_account', 'certified_check'])
+      .withMessage('Tipo inválido'),
     body('currency')
       .optional()
       .isIn(['ARS', 'USD'])
@@ -42,6 +42,10 @@ router.post(
     body('account_number')
       .if(body('type').equals('bank_account'))
       .notEmpty().withMessage('Número de cuenta requerido'),
+
+    body('monto_reservado')
+      .if(body('type').equals('certified_check'))
+      .isFloat({ gt: 0 }).withMessage('Monto reservado requerido para cheque certificado'),
   ],
   validate,
   create

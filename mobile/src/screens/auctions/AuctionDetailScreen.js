@@ -4,26 +4,32 @@ import { Button } from '../../components/ui/Button';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
 import { colors, spacing, typography } from '../../theme';
-import { fetchAuction } from '../../services/loteApi';
-import { getAuctionImageSource } from '../../assets/auctionImages';
+import { fetchAuctionItem } from '../../services/loteApi';
+import { getPieceImageSource } from '../../assets/auctionImages';
 import { formatCurrency } from '../../utils/validation';
 import { ApiError } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
-
 export function AuctionDetailScreen({ route, navigation }) {
-  const { id } = route.params;
+  const { auctionId, itemId, id } = route.params;
+  const resolvedAuctionId = auctionId || id;
+  const { isGuest } = useAuth();
   const { showDialog } = useDialog();
-  const [auction, setAuction] = useState(null);
+  const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        setAuction(await fetchAuction(id));
+        if (itemId) {
+          setItem(await fetchAuctionItem(resolvedAuctionId, itemId, { auth: !isGuest }));
+        } else {
+          navigation.replace('AuctionCatalog', { id: resolvedAuctionId });
+        }
       } catch (error) {
         showDialog({
           title: 'Error',
-          message: error instanceof ApiError ? error.message : 'No se pudo cargar la subasta',
+          message: error instanceof ApiError ? error.message : 'No se pudo cargar la pieza',
           variant: 'error',
         });
         navigation.goBack();
@@ -31,9 +37,9 @@ export function AuctionDetailScreen({ route, navigation }) {
         setLoading(false);
       }
     })();
-  }, [id, navigation]);
+  }, [resolvedAuctionId, itemId, navigation, isGuest]);
 
-  if (loading || !auction) {
+  if (loading || !item) {
     return (
       <ScreenLayout shape="lightBlue" safe contentStyle={styles.center}>
         <ActivityIndicator color={colors.brown} />
@@ -41,24 +47,27 @@ export function AuctionDetailScreen({ route, navigation }) {
     );
   }
 
+  const imageSource = getPieceImageSource(item);
+
   return (
     <ScreenLayout shape="lightBlue" safe>
       <ScreenHeader title="Detalle de pieza" shape="brown" onBack={() => navigation.goBack()} embedded />
       <ScrollView contentContainerStyle={styles.content}>
-        <Image source={getAuctionImageSource(auction)} style={styles.image} resizeMode="cover" />
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{auction.categoria}</Text>
-        </View>
-        <Text style={styles.title}>{auction.titulo}</Text>
-        <Text style={styles.description}>{auction.descripcion}</Text>
-        <Text style={styles.price}>Puja actual: {formatCurrency(auction.precio_actual)}</Text>
-        <Text style={styles.meta}>Incremento mínimo: {formatCurrency(auction.incremento_minimo)}</Text>
-        {auction.puja_lider ? (
-          <Text style={styles.meta}>
-            Líder: {auction.puja_lider.nombre} {auction.puja_lider.apellido}
-          </Text>
-        ) : null}
-        <Button title="Entrar a la subasta" onPress={() => navigation.navigate('AuctionRoom', { id: auction.id })} />
+        <Image source={imageSource} style={styles.image} resizeMode="cover" />
+        <Text style={styles.badge}>Pieza #{item.numero_pieza || item.id}</Text>
+        <Text style={styles.title}>{item.titulo}</Text>
+        <Text style={styles.description}>{item.descripcion_completa || item.descripcion}</Text>
+        {item.historia ? <Text style={styles.meta}>Historia: {item.historia}</Text> : null}
+        <Text style={styles.price}>Precio base: {formatCurrency(item.precio_base)}</Text>
+        <Text style={styles.meta}>Puja actual: {formatCurrency(item.precio_actual)}</Text>
+        <Text style={styles.previewNote}>
+          Vista previa del lote. Para pujar tenés que ingresar a la sala en vivo desde el catálogo de la subasta.
+        </Text>
+        <Button
+          title="Volver al catálogo"
+          variant="outline"
+          onPress={() => navigation.navigate('AuctionCatalog', { id: resolvedAuctionId })}
+        />
       </ScrollView>
     </ScreenLayout>
   );
@@ -68,17 +77,16 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   image: { width: '100%', height: 240, borderRadius: 16, backgroundColor: colors.lavender },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.lightBlue,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: spacing.md,
-  },
-  badgeText: { ...typography.label, color: colors.teal },
-  title: { ...typography.title, marginTop: spacing.md },
+  badge: { ...typography.captionMd, color: colors.teal, marginTop: spacing.md },
+  title: { ...typography.title, marginTop: spacing.sm },
   description: { ...typography.body, marginVertical: spacing.md, lineHeight: 22 },
   price: { ...typography.price, marginBottom: spacing.xs },
   meta: { ...typography.captionMd, marginBottom: spacing.sm },
+  previewNote: {
+    ...typography.captionMd,
+    lineHeight: 20,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    color: colors.teal,
+  },
 });

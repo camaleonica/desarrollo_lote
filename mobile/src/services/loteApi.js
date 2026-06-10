@@ -1,6 +1,5 @@
 /**
- * Adaptador mobile → API de Daniel (Express + MySQL)
- * Rutas disponibles: /auth, /users, /payment-methods
+ * Adaptador mobile → API Loté (Express + MySQL + WebSocket)
  */
 import {
   apiRequest,
@@ -10,6 +9,7 @@ import {
   getRefreshToken,
   ApiError,
 } from './api';
+import { getApiBaseUrl } from '../config/api';
 
 function mapUser(user) {
   if (!user) return null;
@@ -20,20 +20,34 @@ function mapUser(user) {
     apellido: user.last_name || user.apellido || '',
     domicilio: user.legal_address || user.domicilio || '',
     kyc_status: user.kyc_status || null,
+    categoria: user.categoria || 'comun',
+    notificaciones: Boolean(user.notificaciones),
+    foto_perfil: user.foto_perfil || null,
   };
+}
+
+export function resolveMediaUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 function mapPaymentMethod(item) {
   const currency = item.currency || 'ARS';
+  const tipoMap = {
+    credit_card: 'Tarjeta de crédito',
+    bank_account: 'Cuenta bancaria',
+    certified_check: 'Cheque certificado',
+  };
   return {
     ...item,
     currency,
     moneda: currency === 'USD' ? 'Dólares' : 'Pesos',
-    tipo: item.type === 'credit_card' ? 'Tarjeta de crédito' : 'Cuenta bancaria',
+    tipo: tipoMap[item.type] || item.type,
     titular: item.bank_name || item.card_brand || item.label || '',
     ultimos_digitos: item.card_last4 || item.account_number || '',
     label: item.label,
-    estado: item.status || (item.is_active ? 'activo' : 'inactivo'),
+    estado: item.status || (item.is_active ? (item.verificado ? 'activo' : 'pendiente') : 'inactivo'),
   };
 }
 
@@ -54,32 +68,15 @@ async function saveAuthResponse(data) {
   return { user: mapUser(data.user), token: data.accessToken };
 }
 
-async function requestOrEmpty(path, options) {
-  try {
-    return await apiRequest(path, options);
-  } catch (error) {
-    if (error instanceof ApiError && (error.status === 404 || error.message === 'Ruta no encontrada')) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-// ─── Auth (Daniel) ───────────────────────────────────────────
+// ─── Auth ────────────────────────────────────────────────────
 
 export async function login(email, password) {
-  const data = await apiRequest('/auth/login', {
-    method: 'POST',
-    body: { email, password },
-  });
+  const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
   return saveAuthResponse(data);
 }
 
 export async function registerProvisional(email) {
-  const data = await apiRequest('/auth/register', {
-    method: 'POST',
-    body: { email },
-  });
+  const data = await apiRequest('/auth/register', { method: 'POST', body: { email } });
   const auth = await saveAuthResponse(data);
   return { ...auth, provisionalPassword: data.provisionalPassword };
 }
@@ -88,16 +85,8 @@ export async function changePassword({ currentPassword, newPassword }) {
   return apiRequest('/auth/change-password', {
     method: 'POST',
     auth: true,
-    body: {
-      current_password: currentPassword,
-      new_password: newPassword,
-    },
+    body: { current_password: currentPassword, new_password: newPassword },
   });
-}
-
-/** @deprecated use registerProvisional */
-export async function register(payload) {
-  return registerProvisional(payload.email);
 }
 
 export async function submitKyc({ first_name, last_name, legal_address, country = 'Argentina', dniFront, dniBack }) {
@@ -108,46 +97,56 @@ export async function submitKyc({ first_name, last_name, legal_address, country 
   form.append('country', country);
   appendImage(form, 'dni_front', dniFront);
   appendImage(form, 'dni_back', dniBack);
-
-  return apiMultipartRequest('/users/me/kyc', {
-    method: 'POST',
-    formData: form,
-    auth: true,
-  });
+  return apiMultipartRequest('/users/me/kyc', { method: 'POST', formData: form, auth: true });
 }
 
 export async function forgotPassword(email) {
-  return apiRequest('/auth/forgot-password', {
+  return apiRequest('/auth/forgot-password', { method: 'POST', body: { email } });
+}
+
+export async function resetPassword(token, newPassword) {
+  return apiRequest('/auth/reset-password', {
     method: 'POST',
-    body: { email },
+    body: { token, new_password: newPassword },
   });
 }
 
 export async function getProfile() {
   const data = await apiRequest('/users/me', { auth: true });
   const user = mapUser(data.user);
-  if (!user?.id) {
-    throw new ApiError('No se pudo obtener el perfil del usuario');
-  }
+  if (!user?.id) throw new ApiError('No se pudo obtener el perfil del usuario');
   return user;
+}
+
+export async function updateProfile(payload) {
+  const data = await apiRequest('/users/me', { method: 'PATCH', auth: true, body: payload });
+  return mapUser(data.user);
+}
+
+export async function uploadAvatar(asset) {
+  if (!asset?.uri) throw new ApiError('No se seleccionó ninguna imagen');
+  const form = new FormData();
+  form.append('avatar', {
+    uri: asset.uri,
+    name: asset.fileName || 'avatar.jpg',
+    type: asset.mimeType || 'image/jpeg',
+  });
+  const data = await apiMultipartRequest('/users/me/avatar', { method: 'POST', formData: form, auth: true });
+  return mapUser(data.user);
 }
 
 export async function logout() {
   const refreshToken = await getRefreshToken();
   try {
     if (refreshToken) {
-      await apiRequest('/auth/logout', {
-        method: 'POST',
-        auth: true,
-        body: { refreshToken },
-      });
+      await apiRequest('/auth/logout', { method: 'POST', auth: true, body: { refreshToken } });
     }
   } finally {
     await clearSession();
   }
 }
 
-// ─── Medios de pago (Daniel) ─────────────────────────────────
+// ─── Medios de pago ──────────────────────────────────────────
 
 export async function fetchPaymentMethods() {
   const data = await apiRequest('/payment-methods', { auth: true });
@@ -155,82 +154,148 @@ export async function fetchPaymentMethods() {
 }
 
 export async function addPaymentMethod(payload) {
-  const isCard = payload.type === 'credit_card' || payload.tipo === 'Tarjeta de crédito';
-  const body = isCard
-    ? {
-        type: 'credit_card',
-        currency: payload.currency || 'ARS',
-        card_brand: payload.card_brand || payload.titular || 'Tarjeta',
-        card_last4: String(payload.card_last4 || payload.ultimos_digitos || '').slice(-4),
-      }
-    : {
-        type: 'bank_account',
-        currency: payload.currency || 'ARS',
-        bank_name: payload.bank_name || payload.titular || 'Banco',
-        account_number: String(payload.account_number || payload.ultimos_digitos || ''),
-      };
+  const type = payload.type
+    || (payload.tipo === 'Tarjeta de crédito' ? 'credit_card'
+      : payload.tipo === 'Cheque certificado' ? 'certified_check' : 'bank_account');
 
-  return apiRequest('/payment-methods', {
-    method: 'POST',
-    auth: true,
-    body,
-  });
+  const body = {
+    type,
+    currency: payload.currency || 'ARS',
+  };
+
+  if (type === 'credit_card') {
+    Object.assign(body, {
+      card_brand: payload.card_brand || payload.titular || 'Tarjeta',
+      card_last4: String(payload.card_last4 || payload.ultimos_digitos || '').slice(-4),
+    });
+  } else if (type === 'certified_check') {
+    body.monto_reservado = Number(payload.monto_reservado || payload.monto || 0);
+  } else {
+    Object.assign(body, {
+      bank_name: payload.bank_name || payload.titular || 'Banco',
+      account_number: String(payload.account_number || payload.ultimos_digitos || ''),
+    });
+  }
+
+  return apiRequest('/payment-methods', { method: 'POST', auth: true, body });
 }
 
 export async function deletePaymentMethod(id) {
-  return apiRequest(`/payment-methods/${id}`, {
-    method: 'DELETE',
-    auth: true,
-  });
+  return apiRequest(`/payment-methods/${id}`, { method: 'DELETE', auth: true });
 }
 
-// ─── Pendiente en backend de Daniel ──────────────────────────
+// ─── Subastas ────────────────────────────────────────────────
 
-export async function fetchAuctions() {
-  const data = await requestOrEmpty('/auctions');
-  return data || [];
+export async function fetchAuctions({ auth = true } = {}) {
+  return apiRequest('/auctions', { auth });
 }
 
 export async function fetchCategories() {
-  const data = await requestOrEmpty('/auctions/categories');
-  return data || [];
+  return apiRequest('/auctions/categories');
 }
 
-export async function fetchAuction(id) {
-  const data = await requestOrEmpty(`/auctions/${id}`);
-  if (!data) {
-    throw new ApiError('Las subastas todavía no están en el backend.', { code: 'NOT_IMPLEMENTED' });
-  }
-  return data;
+export async function fetchAuction(id, { auth = true } = {}) {
+  return apiRequest(`/auctions/${id}`, { auth });
 }
 
-export async function placeBid(auctionId, monto) {
+export async function fetchAuctionItem(auctionId, itemId, { auth = true } = {}) {
+  const data = await apiRequest(`/auctions/${auctionId}/items/${itemId}`, { auth });
+  return {
+    ...data,
+    titulo: data.titulo,
+    descripcion: data.descripcion || data.descripcion_completa,
+    precio_actual: data.precio_actual,
+    categoria: data.categoria,
+    imagen_url: data.fotos?.[0]?.url || null,
+    fotos: data.fotos || [],
+  };
+}
+
+export async function joinAuction(id) {
+  return apiRequest(`/auctions/${id}/join`, { method: 'POST', auth: true });
+}
+
+export async function placeBid(auctionId, monto, itemId) {
   return apiRequest(`/auctions/${auctionId}/bids`, {
     method: 'POST',
     auth: true,
-    body: { monto },
+    body: { monto, item_id: itemId },
   });
 }
 
+export async function leaveAuction(id) {
+  return apiRequest(`/auctions/${id}/leave`, { method: 'POST', auth: true });
+}
+
+// ─── Actividades / multas ────────────────────────────────────
+
 export async function fetchActivities() {
-  const data = await requestOrEmpty('/activities', { auth: true });
-  return data || [];
+  return apiRequest('/activities', { auth: true });
 }
 
 export async function fetchStats() {
-  const data = await requestOrEmpty('/activities/stats', { auth: true });
-  return data || { total_pujas: 0, ganando: 0, ganadas: 0 };
+  return apiRequest('/activities/stats', { auth: true });
 }
+
+export async function fetchFines() {
+  return apiRequest('/fines', { auth: true });
+}
+
+export async function payFine(id, medioPagoId) {
+  return apiRequest(`/fines/${id}/pay`, {
+    method: 'POST',
+    auth: true,
+    body: { medio_pago_id: medioPagoId },
+  });
+}
+
+// ─── Artículos ───────────────────────────────────────────────
 
 export async function fetchMyItems() {
-  const data = await requestOrEmpty('/items', { auth: true });
-  return data || [];
+  return apiRequest('/items', { auth: true });
 }
 
-export async function createItem(payload) {
-  return apiRequest('/items', {
+export async function fetchItemTracking(id) {
+  return apiRequest(`/items/${id}/tracking`, { auth: true });
+}
+
+export async function createItem({ titulo, descripcion, historia, datos_relevantes, declaracion_legal, photos }) {
+  const form = new FormData();
+  form.append('titulo', titulo || '');
+  form.append('descripcion', descripcion || '');
+  if (historia) form.append('historia', historia);
+  if (datos_relevantes) form.append('datos_relevantes', datos_relevantes);
+  form.append('declaracion_legal', declaracion_legal ? 'true' : 'false');
+
+  (photos || []).forEach((photo, index) => {
+    form.append('photos', {
+      uri: photo.uri,
+      name: photo.fileName || `photo_${index}.jpg`,
+      type: photo.mimeType || 'image/jpeg',
+    });
+  });
+
+  return apiMultipartRequest('/items', { method: 'POST', formData: form, auth: true });
+}
+
+export async function respondItemConditions(id, acepta) {
+  return apiRequest(`/items/${id}/conditions`, {
+    method: 'POST',
+    auth: true,
+    body: { acepta },
+  });
+}
+
+// ─── Compras ─────────────────────────────────────────────────
+
+export async function finalizePurchase(auctionId, payload) {
+  return apiRequest(`/purchases/auctions/${auctionId}/finalize`, {
     method: 'POST',
     auth: true,
     body: payload,
   });
+}
+
+export async function fetchDelivery(purchaseId) {
+  return apiRequest(`/purchases/${purchaseId}/delivery`, { auth: true });
 }

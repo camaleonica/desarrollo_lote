@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
@@ -10,11 +10,29 @@ import { SearchBar } from '../../components/m3/SearchBar';
 import { FilterChip } from '../../components/m3/FilterChip';
 import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';
-import { fetchAuctions, fetchCategories } from '../../services/loteApi';
+import { fetchAuctions, fetchCategories, resolveMediaUrl } from '../../services/loteApi';
+import { GuestBanner } from '../../components/auth/GuestBanner';
 import { ApiError } from '../../services/api';
 
+const MEMBERSHIP_LABELS = {
+  comun: 'Común',
+  especial: 'Especial',
+  plata: 'Plata',
+  oro: 'Oro',
+  platino: 'Platino',
+};
+
+function SectionHeader({ title, count }) {
+  return (
+    <View style={styles.sectionRow}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionCount}>{count}</Text>
+    </View>
+  );
+}
+
 export function HomeScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const { showDialog } = useDialog();
   const [auctions, setAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -25,7 +43,10 @@ export function HomeScreen({ navigation }) {
 
   async function loadData() {
     try {
-      const [list, cats] = await Promise.all([fetchAuctions(), fetchCategories()]);
+      const [list, cats] = await Promise.all([
+        fetchAuctions({ auth: !isGuest }),
+        fetchCategories(),
+      ]);
       setAuctions(list);
       setCategories(['Todas', ...cats]);
     } catch (error) {
@@ -42,13 +63,36 @@ export function HomeScreen({ navigation }) {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [isGuest]);
 
-  const filtered = auctions.filter((item) => {
+  const filtered = useMemo(() => auctions.filter((item) => {
     const matchCategory = selectedCategory === 'Todas' || item.categoria === selectedCategory;
     const matchSearch = item.titulo.toLowerCase().includes(search.toLowerCase());
     return matchCategory && matchSearch;
-  });
+  }), [auctions, selectedCategory, search]);
+
+  const { disponibles, bloqueadas } = useMemo(() => {
+    if (isGuest) {
+      return { disponibles: filtered, bloqueadas: [] };
+    }
+    return {
+      disponibles: filtered.filter((item) => !item.bloqueada),
+      bloqueadas: filtered.filter((item) => item.bloqueada),
+    };
+  }, [filtered, isGuest]);
+
+  const listData = useMemo(() => {
+    const rows = [];
+    if (disponibles.length) {
+      rows.push({ type: 'header', key: 'h-ok', title: isGuest ? 'Subastas para explorar' : 'Podés participar', count: disponibles.length });
+      disponibles.forEach((item) => rows.push({ type: 'auction', key: `a-${item.id}`, item, locked: isGuest }));
+    }
+    if (bloqueadas.length) {
+      rows.push({ type: 'header', key: 'h-lock', title: 'Requieren categoría mayor', count: bloqueadas.length });
+      bloqueadas.forEach((item) => rows.push({ type: 'auction', key: `l-${item.id}`, item, locked: true }));
+    }
+    return rows;
+  }, [disponibles, bloqueadas, isGuest]);
 
   if (loading) {
     return (
@@ -59,28 +103,35 @@ export function HomeScreen({ navigation }) {
   }
 
   const userName = user ? `${user.nombre} ${user.apellido}` : 'Invitado';
+  const membership = MEMBERSHIP_LABELS[user?.categoria] || user?.categoria || 'Sin membresía';
+  const avatarUri = resolveMediaUrl(user?.foto_perfil);
 
   return (
     <ScreenLayout shape="lightBlue" safe>
       <ScreenHeader title="Subastas" subtitle="Explorá piezas en vivo" shape="brown" embedded />
       <FlatList
-        data={filtered}
-        keyExtractor={(item) => String(item.id)}
+        data={listData}
+        keyExtractor={(row) => row.key}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />
         }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
+            <GuestBanner />
             <Surface style={styles.userCard}>
               <View style={styles.userRow}>
                 <View style={styles.avatar}>
-                  <MaterialIcons name="account-circle" size={36} color={colors.brown} />
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <MaterialIcons name="account-circle" size={36} color={colors.brown} />
+                  )}
                 </View>
                 <View style={styles.userText}>
                   <Text style={styles.userGreeting}>Hola, {userName}</Text>
                   <Text style={styles.userMeta}>
-                    Categoría: {selectedCategory === 'Todas' ? 'General' : selectedCategory}
+                    Tu membresía: {membership}
                   </Text>
                 </View>
                 <MaterialIcons name="notifications-none" size={24} color={colors.textMuted} />
@@ -89,7 +140,7 @@ export function HomeScreen({ navigation }) {
 
             <SearchBar value={search} onChangeText={setSearch} placeholder="Buscar subasta..." />
 
-            <Text style={styles.sectionLabel}>Categorías</Text>
+            <Text style={styles.sectionLabel}>Filtrar por tipo de subasta</Text>
             <FlatList
               horizontal
               data={categories}
@@ -105,21 +156,24 @@ export function HomeScreen({ navigation }) {
                 />
               )}
             />
-
-            <View style={styles.sectionRow}>
-              <Text style={styles.sectionTitle}>Subastas activas</Text>
-              <Text style={styles.sectionCount}>{filtered.length}</Text>
-            </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <AuctionCard auction={item} onPress={() => navigation.navigate('AuctionDetail', { id: item.id })} />
-        )}
+        renderItem={({ item: row }) => {
+          if (row.type === 'header') {
+            return <SectionHeader title={row.title} count={row.count} />;
+          }
+          return (
+            <AuctionCard
+              auction={row.item}
+              locked={row.locked}
+              onPress={() => navigation.getParent()?.navigate('AuctionCatalog', { id: row.item.id })}
+            />
+          );
+        }}
         ListEmptyComponent={
           <Surface style={styles.emptyCard}>
             <MaterialIcons name="inventory-2" size={32} color={colors.textMuted} />
-            <Text style={styles.empty}>No hay subastas todavía</Text>
-            <Text style={styles.emptyHint}>El módulo de subastas lo agrega el backend de Daniel</Text>
+            <Text style={styles.empty}>No hay subastas con ese filtro</Text>
           </Surface>
         }
       />
@@ -134,9 +188,10 @@ const styles = StyleSheet.create({
   userCard: { paddingVertical: spacing.sm },
   userRow: { flexDirection: 'row', alignItems: 'center' },
   avatar: { marginRight: spacing.sm },
+  avatarImage: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.lavender },
   userText: { flex: 1 },
   userGreeting: { ...typography.bodyBold, color: colors.brown },
-  userMeta: { ...typography.captionMd, marginTop: 2 },
+  userMeta: { ...typography.captionMd, marginTop: 2, color: colors.teal },
   sectionLabel: { ...typography.captionMd, color: colors.textMuted },
   chipsList: { flexGrow: 0 },
   chipsContent: { paddingVertical: spacing.xs, alignItems: 'center' },
@@ -144,11 +199,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   sectionTitle: { ...typography.titleSm, fontSize: 18 },
   sectionCount: { ...typography.label, color: colors.teal },
   emptyCard: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
   empty: { ...typography.captionMd, textAlign: 'center' },
-  emptyHint: { ...typography.captionMd, textAlign: 'center', fontSize: 12, color: colors.textMuted },
 });

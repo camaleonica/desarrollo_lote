@@ -15,13 +15,15 @@ import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
 import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';
-import { fetchAuction, placeBid } from '../../services/loteApi';
+import { fetchAuction, placeBid, joinAuction, leaveAuction } from '../../services/loteApi';
+import { joinAuctionRoom } from '../../services/auctionSocket';
 import { getAuctionImageSource } from '../../assets/auctionImages';
 import { formatCurrency } from '../../utils/validation';
 import { ApiError } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 
-const STREAM_URL = 'https://www.youtube.com/watch?v=live';
+const STREAM_URL_FALLBACK = 'https://www.youtube.com/watch?v=live';
 
 function formatCountdown(secondsLeft) {
   if (secondsLeft <= 0) return '00:00';
@@ -32,6 +34,7 @@ function formatCountdown(secondsLeft) {
 
 export function AuctionRoomScreen({ route, navigation }) {
   const { id } = route.params;
+  const { isGuest, openAuthEntry } = useAuth();
   const { showDialog } = useDialog();
   const [auction, setAuction] = useState(null);
   const [monto, setMonto] = useState('');
@@ -39,6 +42,20 @@ export function AuctionRoomScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (!isGuest) return;
+    showDialog({
+      title: 'Modo invitado',
+      message: 'Necesitás registrarte y verificar tu identidad para participar en subastas en vivo.',
+      variant: 'info',
+      buttons: [
+        { text: 'Volver', style: 'outline', onPress: () => navigation.goBack() },
+        { text: 'Registrarme', style: 'primary', onPress: () => openAuthEntry('RegisterStep1') },
+      ],
+    });
+    navigation.goBack();
+  }, [isGuest, navigation, openAuthEntry, showDialog]);
 
   async function loadAuction() {
     try {
@@ -61,10 +78,44 @@ export function AuctionRoomScreen({ route, navigation }) {
   }
 
   useEffect(() => {
-    loadAuction();
-    const interval = setInterval(loadAuction, 3000);
-    return () => clearInterval(interval);
-  }, [id]);
+    let active = true;
+
+    (async () => {
+      try {
+        await joinAuction(id);
+      } catch (err) {
+        if (active) {
+          showDialog({
+            title: 'No podés ingresar',
+            message: err instanceof ApiError ? err.message : 'No se pudo conectar a la subasta',
+            variant: 'warning',
+            buttons: [{ text: 'Volver', style: 'primary', onPress: () => navigation.goBack() }],
+          });
+        }
+        return;
+      }
+      if (active) await loadAuction();
+    })();
+
+    const unsubscribe = joinAuctionRoom(id, (payload) => {
+      setAuction(payload);
+      if (payload?.fecha_fin) {
+        const diff = Math.max(0, Math.floor((new Date(payload.fecha_fin).getTime() - Date.now()) / 1000));
+        setSecondsLeft(diff > 0 ? diff : 0);
+      }
+    });
+
+    const leaveOnExit = navigation.addListener('beforeRemove', () => {
+      leaveAuction(id).catch(() => {});
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+      leaveOnExit();
+      leaveAuction(id).catch(() => {});
+    };
+  }, [id, navigation, showDialog]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -88,7 +139,7 @@ export function AuctionRoomScreen({ route, navigation }) {
 
     setSubmitting(true);
     try {
-      await placeBid(id, value);
+      await placeBid(id, value, auction?.pieza_actual?.id);
       await loadAuction();
       setError('');
       showDialog({
@@ -120,7 +171,8 @@ export function AuctionRoomScreen({ route, navigation }) {
   }
 
   function openStream() {
-    Linking.openURL(STREAM_URL).catch(() => {
+    const url = auction?.streaming_url || STREAM_URL_FALLBACK;
+    Linking.openURL(url).catch(() => {
       showDialog({
         title: 'Streaming',
         message: 'No se pudo abrir el enlace. Intentá más tarde.',
@@ -184,7 +236,7 @@ export function AuctionRoomScreen({ route, navigation }) {
           </Pressable>
 
           <Text style={styles.hint}>
-            Hay otros participantes conectados. Las pujas se actualizan en tiempo real.
+            Las pujas se actualizan en tiempo real. Salí de la sala cuando termines de participar.
           </Text>
         </Surface>
 

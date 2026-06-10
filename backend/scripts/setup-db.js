@@ -12,9 +12,52 @@ const {
   DB_NAME = 'lote_db',
 } = process.env;
 
+async function runSqlFile(connection, filePath) {
+  const sql = fs.readFileSync(filePath, 'utf8');
+  const statements = sql
+    .split(';')
+    .map((part) => part.replace(/--.*$/gm, '').trim())
+    .filter(Boolean);
+
+  const ignorableCodes = new Set([
+    'ER_DUP_KEYNAME',
+    'ER_TABLE_EXISTS_ERROR',
+    'ER_DUP_ENTRY',
+    'ER_DUP_FIELDNAME',
+    'ER_FK_DUP_NAME',
+    'ER_CANT_CREATE_TABLE',
+  ]);
+
+  for (const statement of statements) {
+    try {
+      await connection.query(`${statement};`);
+    } catch (error) {
+      if (!ignorableCodes.has(error.code)) throw error;
+    }
+  }
+}
+
+function copyDemoAuctionImages() {
+  const demoDir = path.join(__dirname, '../uploads/demo');
+  const mobileDir = path.join(__dirname, '../../mobile/assets/images/auctions');
+
+  fs.mkdirSync(demoDir, { recursive: true });
+
+  if (!fs.existsSync(mobileDir)) {
+    console.warn('⚠️  No se encontraron imágenes en mobile/assets/images/auctions');
+    return;
+  }
+
+  const files = fs.readdirSync(mobileDir).filter((name) => name.endsWith('.webp'));
+  for (const file of files) {
+    fs.copyFileSync(path.join(mobileDir, file), path.join(demoDir, file));
+  }
+  console.log(`🖼️  ${files.length} imágenes de subasta copiadas a uploads/demo/`);
+}
+
 async function main() {
   const schemaPath = path.join(__dirname, '../database/schema.sql');
-  const sql = fs.readFileSync(schemaPath, 'utf8');
+  const seedPath = path.join(__dirname, '../database/seed.sql');
 
   console.log(`Conectando a MySQL ${DB_USER}@${DB_HOST}:${DB_PORT}...`);
 
@@ -26,27 +69,18 @@ async function main() {
     multipleStatements: true,
   });
 
-  const ignorableCodes = new Set([
-    'ER_DUP_KEYNAME',
-    'ER_TABLE_EXISTS_ERROR',
-    'ER_DUP_ENTRY',
-  ]);
-
   try {
-    const statements = sql
-      .split(';')
-      .map((part) => part.replace(/--.*$/gm, '').trim())
-      .filter(Boolean);
+    console.log('📦  Aplicando schema...');
+    await runSqlFile(connection, schemaPath);
 
-    for (const statement of statements) {
-      try {
-        await connection.query(`${statement};`);
-      } catch (error) {
-        if (!ignorableCodes.has(error.code)) throw error;
-      }
+    copyDemoAuctionImages();
+
+    if (fs.existsSync(seedPath)) {
+      console.log('🌱  Cargando datos de demo...');
+      await runSqlFile(connection, seedPath);
     }
 
-    console.log(`✅  Base "${DB_NAME}" y tablas creadas/verificadas correctamente.`);
+    console.log(`✅  Base "${DB_NAME}" lista.`);
   } finally {
     await connection.end();
   }

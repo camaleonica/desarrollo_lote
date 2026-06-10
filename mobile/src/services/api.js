@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { API_BASE_URL } from '../config/api';
+import { getApiBaseUrl } from '../config/api';
 
 const TOKEN_KEY = 'lote_token';
 const REFRESH_TOKEN_KEY = 'lote_refresh_token';
@@ -97,7 +97,7 @@ export async function apiRequest(path, { method = 'GET', body, auth = false } = 
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -127,7 +127,7 @@ export async function apiMultipartRequest(path, { method = 'POST', formData, aut
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers,
       body: formData,

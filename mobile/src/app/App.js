@@ -8,7 +8,7 @@ import { SplashScreen } from '../screens/auth/SplashScreen';
 import { colors, typography, useAppFonts } from '../theme';
 
 function RootNavigator() {
-  const { canAccessApp, loading } = useAuth();
+  const { canBrowseApp, loading } = useAuth();
 
   if (loading) {
     return (
@@ -18,7 +18,7 @@ function RootNavigator() {
     );
   }
 
-  return canAccessApp ? <AppStack /> : <AuthStack />;
+  return canBrowseApp ? <AppStack /> : <AuthStack />;
 }
 
 function AppGate() {
@@ -55,10 +55,10 @@ function AppGate() {
 }
 
 function AuthRoot() {
-  const { canAccessApp } = useAuth();
+  const { canBrowseApp } = useAuth();
 
   return (
-    <NavigationContainer key={canAccessApp ? 'main-app' : 'auth-flow'}>
+    <NavigationContainer key={canBrowseApp ? 'main-app' : 'auth-flow'}>
       <RootNavigator />
     </NavigationContainer>
   );

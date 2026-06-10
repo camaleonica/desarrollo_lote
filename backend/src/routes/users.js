@@ -1,8 +1,9 @@
 const { Router } = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
-const upload  = require('../config/multer');
-const { getMe, submitKyc } = require('../controllers/userController');
+const upload = require('../config/multer');
+const uploadAvatar = require('../config/multerAvatar');
+const { getMe, submitKyc, updateProfile, uploadAvatar: uploadAvatarHandler } = require('../controllers/userController');
 
 const router = Router();
 
@@ -21,9 +22,29 @@ router.use(authenticate);
 router.get('/me', getMe);
 
 /**
+ * PATCH /users/me — WF-16 Perfil (forma de pago default, notificaciones, cuenta cobro)
+ */
+router.patch(
+  '/me',
+  [
+    body('medio_pago_default_id').optional().isInt({ min: 1 }),
+    body('notificaciones').optional().isBoolean(),
+    body('cuenta_cobro').optional().trim().isLength({ max: 100 }),
+  ],
+  validate,
+  updateProfile
+);
+
+/**
  * POST /users/me/kyc
  * multipart/form-data con campos + archivos dni_front / dni_back
  */
+router.post(
+  '/me/avatar',
+  uploadAvatar.single('avatar'),
+  uploadAvatarHandler
+);
+
 router.post(
   '/me/kyc',
   upload.fields([

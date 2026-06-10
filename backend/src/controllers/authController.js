@@ -1,5 +1,5 @@
-const bcrypt  = require('bcryptjs');
-const db      = require('../config/db');
+const bcrypt = require('bcryptjs');
+const db = require('../config/db');
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -7,14 +7,14 @@ const {
   refreshExpiresAt,
 } = require('../utils/jwt');
 const { generateProvisionalPassword } = require('../utils/password');
-
-// ─── Helpers ────────────────────────────────────────────────
+const { mapUserResponse, getUsuarioConCliente } = require('../utils/userContext');
+const { sendProvisionalPasswordEmail, sendPasswordResetEmail, generateToken } = require('../services/emailService');
 
 const issueTokens = async (user) => {
-  const payload      = { id: user.id, email: user.email };
-  const accessToken  = generateAccessToken(payload);
+  const payload = { id: user.id, email: user.email };
+  const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
-  const expiresAt    = refreshExpiresAt();
+  const expiresAt = refreshExpiresAt();
 
   await db.execute(
     'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
@@ -24,19 +24,13 @@ const issueTokens = async (user) => {
   return { accessToken, refreshToken };
 };
 
-// ─── Controllers ────────────────────────────────────────────
-
-/**
- * POST /auth/register
- * Body: { email }
- * Crea la cuenta con contraseña provisoria generada por el servidor.
- */
 const register = async (req, res) => {
   const { email } = req.body;
 
   try {
     const [existing] = await db.execute(
-      'SELECT id FROM users WHERE email = ?', [email]
+      'SELECT id FROM usuarios_app WHERE email = ?',
+      [email]
     );
     if (existing.length > 0) {
       return res.status(409).json({ message: 'El email ya está registrado', code: 'EMAIL_EXISTS' });
@@ -46,14 +40,15 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(provisionalPassword, 12);
 
     const [result] = await db.execute(
-      'INSERT INTO users (email, password) VALUES (?, ?)',
-      [email, hashedPassword]
+      'INSERT INTO usuarios_app (email, password, status) VALUES (?, ?, ?)',
+      [email, hashedPassword, 'pending']
     );
 
     const user = { id: result.insertId, email };
     const { accessToken, refreshToken } = await issueTokens(user);
 
     console.log(`[register] Contraseña provisoria para ${email}: ${provisionalPassword}`);
+    await sendProvisionalPasswordEmail(email, provisionalPassword);
 
     return res.status(201).json({
       message: 'Cuenta creada. Usá la contraseña provisoria para definir tu contraseña definitiva.',
@@ -68,17 +63,12 @@ const register = async (req, res) => {
   }
 };
 
-/**
- * POST /auth/change-password
- * Body: { current_password, new_password }
- * Reemplaza la contraseña provisoria por la definitiva del usuario.
- */
 const changePassword = async (req, res) => {
   const { current_password, new_password } = req.body;
 
   try {
     const [rows] = await db.execute(
-      'SELECT id, email, password, status FROM users WHERE id = ?',
+      'SELECT id, email, password, status FROM usuarios_app WHERE id = ?',
       [req.user.id]
     );
 
@@ -98,13 +88,15 @@ const changePassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(new_password, 12);
     await db.execute(
-      "UPDATE users SET password = ?, status = 'verified' WHERE id = ?",
+      "UPDATE usuarios_app SET password = ?, status = 'verified' WHERE id = ?",
       [hashedPassword, user.id]
     );
 
+    const profile = await getUsuarioConCliente(user.id);
+
     return res.json({
       message: 'Contraseña actualizada correctamente',
-      user: { id: user.id, email: user.email, status: 'verified' },
+      user: mapUserResponse(profile || { id: user.id, email: user.email, status: 'verified' }),
     });
   } catch (err) {
     console.error('[changePassword]', err);
@@ -112,16 +104,13 @@ const changePassword = async (req, res) => {
   }
 };
 
-/**
- * POST /auth/login
- * Body: { email, password }
- */
 const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const [rows] = await db.execute(
-      'SELECT id, email, password, status FROM users WHERE email = ?', [email]
+      'SELECT id, email, password, status FROM usuarios_app WHERE email = ?',
+      [email]
     );
 
     if (rows.length === 0) {
@@ -139,11 +128,16 @@ const login = async (req, res) => {
       return res.status(403).json({ message: 'Cuenta suspendida. Contactá soporte.' });
     }
 
+    if (user.status === 'blocked') {
+      return res.status(403).json({ message: 'Cuenta bloqueada por incumplimiento de pago.' });
+    }
+
     const { accessToken, refreshToken } = await issueTokens(user);
+    const profile = await getUsuarioConCliente(user.id);
 
     return res.json({
       message: 'Sesión iniciada correctamente',
-      user: { id: user.id, email: user.email, status: user.status },
+      user: mapUserResponse(profile || user),
       accessToken,
       refreshToken,
     });
@@ -153,10 +147,6 @@ const login = async (req, res) => {
   }
 };
 
-/**
- * POST /auth/refresh
- * Body: { refreshToken }
- */
 const refresh = async (req, res) => {
   const { refreshToken } = req.body;
 
@@ -165,10 +155,8 @@ const refresh = async (req, res) => {
   }
 
   try {
-    // Verificar firma JWT
     const decoded = verifyRefreshToken(refreshToken);
 
-    // Verificar que el token existe en DB y no expiró
     const [rows] = await db.execute(
       `SELECT id FROM refresh_tokens
        WHERE token = ? AND user_id = ? AND expires_at > NOW()`,
@@ -179,13 +167,12 @@ const refresh = async (req, res) => {
       return res.status(401).json({ message: 'Refresh token inválido o expirado' });
     }
 
-    // Rotar refresh token (invalidar el viejo, generar uno nuevo)
     await db.execute('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]);
 
     const user = { id: decoded.id, email: decoded.email };
-    const { accessToken, refreshToken: newRefreshToken } = await issueTokens(user);
+    const tokens = await issueTokens(user);
 
-    return res.json({ accessToken, refreshToken: newRefreshToken });
+    return res.json(tokens);
   } catch (err) {
     if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Refresh token inválido' });
@@ -195,11 +182,6 @@ const refresh = async (req, res) => {
   }
 };
 
-/**
- * POST /auth/logout
- * Header: Authorization: Bearer <accessToken>
- * Body: { refreshToken }
- */
 const logout = async (req, res) => {
   const { refreshToken } = req.body;
 
@@ -210,6 +192,10 @@ const logout = async (req, res) => {
         [refreshToken, req.user.id]
       );
     }
+    await db.execute(
+      'UPDATE sesiones_subasta SET activa = 0 WHERE usuario_id = ? AND activa = 1',
+      [req.user.id]
+    );
     return res.json({ message: 'Sesión cerrada correctamente' });
   } catch (err) {
     console.error('[logout]', err);
@@ -217,17 +203,21 @@ const logout = async (req, res) => {
   }
 };
 
-/**
- * POST /auth/forgot-password
- * Body: { email }
- */
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
-    const [rows] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    const [rows] = await db.execute('SELECT id FROM usuarios_app WHERE email = ?', [email]);
     if (rows.length > 0) {
-      console.log(`[forgot-password] Solicitud para ${email} (usuario id ${rows[0].id})`);
+      const token = generateToken();
+      const expires = new Date();
+      expires.setHours(expires.getHours() + 1);
+
+      await db.execute(
+        'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
+        [rows[0].id, token, expires]
+      );
+      await sendPasswordResetEmail(email, token);
     }
     return res.json({
       message:
@@ -239,4 +229,33 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, forgotPassword, changePassword };
+const resetPassword = async (req, res) => {
+  const { token, new_password } = req.body;
+
+  try {
+    const [rows] = await db.execute(
+      `SELECT prt.id, prt.user_id
+       FROM password_reset_tokens prt
+       WHERE prt.token = ? AND prt.used = 0 AND prt.expires_at > NOW()`,
+      [token]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'Token inválido o expirado' });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 12);
+    await db.execute(
+      "UPDATE usuarios_app SET password = ?, status = 'verified' WHERE id = ?",
+      [hashedPassword, rows[0].user_id]
+    );
+    await db.execute('UPDATE password_reset_tokens SET used = 1 WHERE id = ?', [rows[0].id]);
+
+    return res.json({ message: 'Contraseña restablecida correctamente' });
+  } catch (err) {
+    console.error('[resetPassword]', err);
+    return res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { register, login, refresh, logout, forgotPassword, changePassword, resetPassword };

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loté · Panel empleado</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="loginGate" class="login-gate">
+    <div class="login-card">
+      <div class="brand">
+        <span class="brand-icon">L</span>
+        <div>
+          <h1>Loté · Empleado</h1>
+          <p>Acceso interno de la empresa de subastas</p>
+        </div>
+      </div>
+      <p class="login-help">
+        Ingresá la clave configurada en <code>ADMIN_API_KEY</code> del archivo <code>backend/.env</code>.
+        Este panel no es la app mobile: acá se verifican postores, artículos y medios de pago.
+      </p>
+      <label class="field">
+        <span>Clave de acceso</span>
+        <input id="adminKey" type="password" placeholder="Ej: ADMIN" autocomplete="off" />
+      </label>
+      <button id="saveKey" type="button" class="btn btn-primary btn-block">Entrar al panel</button>
+      <p id="loginError" class="login-error" hidden></p>
+    </div>
+  </div>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">L</span>
+        <div>
+          <strong>Loté</strong>
+          <small>Panel empleado</small>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="kyc">
+          <span>Verificar postores</span>
+          <span class="badge" id="badge-kyc">0</span>
+        </button>
+        <button class="nav-item" data-tab="items">
+          <span>Revisar artículos</span>
+          <span class="badge" id="badge-items">0</span>
+        </button>
+        <button class="nav-item" data-tab="payments">
+          <span>Medios de pago</span>
+          <span class="badge" id="badge-payments">0</span>
+        </button>
+        <button class="nav-item" data-tab="help">
+          <span>Ayuda</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="logoutBtn" type="button" class="btn btn-ghost btn-block">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">Verificar postores</h2>
+          <p id="pageSubtitle">Revisá identidad y asigná categoría según la investigación (TPO).</p>
+        </div>
+        <button id="refreshBtn" type="button" class="btn btn-outline">↻ Actualizar</button>
+      </header>
+
+      <div id="toast" class="toast" hidden></div>
+
+      <section id="panel-kyc" class="panel active">
+        <div class="info-box">
+          <strong>Paso 1 · KYC del postor</strong>
+          <p>Revisá nombre, domicilio y fotos del DNI. Si aprobás, elegí categoría: define en qué subastas puede participar (común → platino).</p>
+        </div>
+        <div id="kycList" class="cards"></div>
+      </section>
+
+      <section id="panel-items" class="panel">
+        <div class="info-box">
+          <strong>Paso 2 · Solicitudes de artículos</strong>
+          <p>Si aceptás una pieza, completá precio base, comisión y subasta destino. Si rechazás, indicá el motivo (lo verá el dueño en la app).</p>
+        </div>
+        <div id="itemsList" class="cards"></div>
+      </section>
+
+      <section id="panel-payments" class="panel">
+        <div class="info-box">
+          <strong>Paso 3 · Cheques y garantías</strong>
+          <p>Los cheques certificados deben verificarse <em>antes</em> de la subasta. Tarjetas y cuentas suelen quedar activas al cargarlas.</p>
+        </div>
+        <div id="paymentsList" class="cards"></div>
+      </section>
+
+      <section id="panel-help" class="panel">
+        <div class="help-grid">
+          <article class="help-card">
+            <h3>¿Por qué es web y no la app mobile?</h3>
+            <p>La consigna describe empleados de la empresa que verifican postores y bienes. Eso es backoffice interno. La app Expo es para postores e invitados.</p>
+          </article>
+          <article class="help-card">
+            <h3>Usuarios demo (contraseña Demo1234!)</h3>
+            <ul>
+              <li><code>pendiente@lote.app</code> — KYC pendiente</li>
+              <li><code>postor@lote.app</code> — postor con cheque sin verificar</li>
+            </ul>
+          </article>
+          <article class="help-card">
+            <h3>Recupero de contraseña (app mobile)</h3>
+            <p>Sin SMTP configurado, el enlace de reset no llega al correo real: aparece en la <strong>consola del backend</strong> como <code>[email:mock]</code>.</p>
+            <p>Configurá <code>SMTP_*</code> en <code>.env</code> para envío real, o copiá el enlace del log del servidor.</p>
+          </article>
+          <article class="help-card">
+            <h3>Categorías de postor</h3>
+            <ul class="cat-list">
+              <li><strong>Común</strong> — subastas comunes</li>
+              <li><strong>Especial</strong> — comunes + especiales</li>
+              <li><strong>Plata / Oro / Platino</strong> — acceso a subastas de mayor nivel</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

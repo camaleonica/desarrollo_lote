@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
 const {
-  register, login, refresh, logout, forgotPassword, changePassword,
+  register, login, refresh, logout, forgotPassword, changePassword, resetPassword,
 } = require('../controllers/authController');
 
 const router = Router();
@@ -82,6 +82,18 @@ router.post(
   [body('email').isEmail().withMessage('Email inválido').normalizeEmail()],
   validate,
   forgotPassword
+);
+
+router.post(
+  '/reset-password',
+  [
+    body('token').notEmpty(),
+    body('new_password')
+      .isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres')
+      .matches(/\d/).withMessage('La contraseña debe contener al menos un número'),
+  ],
+  validate,
+  resetPassword
 );
 
 module.exports = router;

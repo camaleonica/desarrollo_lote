@@ -7,10 +7,13 @@ import { StatCard } from '../../components/m3/StatCard';
 import { ListTile } from '../../components/m3/ListTile';
 import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';
+import { Button } from '../../components/ui/Button';
 import { fetchActivities, fetchStats } from '../../services/loteApi';
 import { formatCurrency } from '../../utils/validation';
 import { ApiError } from '../../services/api';
+import { GuestGate } from '../../components/auth/GuestGate';
 import { useDialog } from '../../context/DialogContext';
+import { useAuth } from '../../context/AuthContext';
 
 const statusLabels = {
   ganando: { text: 'Ganando', icon: 'trending-up', color: colors.teal },
@@ -19,7 +22,8 @@ const statusLabels = {
   perdida: { text: 'Perdida', icon: 'remove-circle-outline', color: colors.textMuted },
 };
 
-export function ActivitiesScreen() {
+export function ActivitiesScreen({ navigation }) {
+  const { isGuest } = useAuth();
   const { showDialog } = useDialog();
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
@@ -44,8 +48,18 @@ export function ActivitiesScreen() {
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    if (!isGuest) load();
+  }, [isGuest]);
+
+  if (isGuest) {
+    return (
+      <GuestGate
+        title="Mis pujas"
+        subtitle="Seguimiento de subastas"
+        message="Para ver tus pujas, estadísticas y multas necesitás una cuenta verificada como postor."
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -65,10 +79,14 @@ export function ActivitiesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
         ListHeaderComponent={
           stats ? (
-            <View style={styles.statsGrid}>
-              <StatCard icon="gavel" label="Total pujas" value={String(stats.total_pujas)} color={colors.brown} />
-              <StatCard icon="emoji-events" label="Ganadas" value={String(stats.ganadas)} color={colors.teal} />
-              <StatCard icon="percent" label="Éxito" value={`${stats.porcentaje_exito}%`} color={colors.ochre} />
+            <View>
+              <View style={styles.statsGrid}>
+                <StatCard icon="event" label="Asistidas" value={String(stats.subastas_asistidas || 0)} color={colors.brown} />
+                <StatCard icon="emoji-events" label="Ganadas" value={String(stats.ganadas || 0)} color={colors.teal} />
+                <StatCard icon="payments" label="Total ofertado" value={formatCurrency(stats.total_ofertado || 0)} color={colors.ochre} />
+                <StatCard icon="paid" label="Total pagado" value={formatCurrency(stats.total_pagado || 0)} color={colors.teal} />
+              </View>
+              <Button title="Ver multas pendientes" variant="outline" onPress={() => navigation.navigate('Fines')} />
             </View>
           ) : null
         }

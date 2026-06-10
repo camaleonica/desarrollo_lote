@@ -13,6 +13,7 @@ import { useDialog } from '../../context/DialogContext';
 const PAYMENT_TYPES = [
   { id: 'credit_card', label: 'Tarjeta de crédito', icon: 'credit-card' },
   { id: 'bank_account', label: 'Cuenta bancaria', icon: 'account-balance' },
+  { id: 'certified_check', label: 'Cheque certificado', icon: 'receipt-long' },
 ];
 
 const CURRENCIES = [
@@ -29,10 +30,12 @@ export function AddPaymentScreen({ navigation, route }) {
   const [numeroCuenta, setNumeroCuenta] = useState('');
   const [ultimosDigitos, setUltimosDigitos] = useState('');
   const [marcaTarjeta, setMarcaTarjeta] = useState('');
+  const [montoReservado, setMontoReservado] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   const isCard = type === 'credit_card';
+  const isCheck = type === 'certified_check';
 
   function handleTypeChange(nextType) {
     if (nextType === type) return;
@@ -49,6 +52,10 @@ export function AddPaymentScreen({ navigation, route }) {
     if (isCard) {
       if (!ultimosDigitos.trim()) nextErrors.ultimos_digitos = 'Los últimos 4 dígitos son obligatorios';
       else if (ultimosDigitos.trim().length !== 4) nextErrors.ultimos_digitos = 'Ingresá exactamente 4 dígitos';
+    } else if (isCheck) {
+      if (!montoReservado.trim() || Number(montoReservado) <= 0) {
+        nextErrors.monto_reservado = 'Indicá el monto reservado del cheque';
+      }
     } else {
       if (!banco.trim()) nextErrors.banco = 'El banco es obligatorio';
       if (!numeroCuenta.trim()) nextErrors.numero_cuenta = 'El número de cuenta es obligatorio';
@@ -65,6 +72,7 @@ export function AddPaymentScreen({ navigation, route }) {
         card_last4: ultimosDigitos,
         bank_name: banco,
         account_number: numeroCuenta,
+        monto_reservado: isCheck ? Number(montoReservado) : undefined,
       });
       showDialog({
         title: 'Guardado',
@@ -155,6 +163,15 @@ export function AddPaymentScreen({ navigation, route }) {
                 error={errors.ultimos_digitos || errors.card_last4}
               />
             </>
+          ) : isCheck ? (
+            <Input
+              label="Monto reservado del cheque"
+              value={montoReservado}
+              onChangeText={setMontoReservado}
+              placeholder="50000"
+              keyboardType="numeric"
+              error={errors.monto_reservado}
+            />
           ) : (
             <>
               <Input label="Banco" value={banco} onChangeText={setBanco} placeholder="Banco Nación" error={errors.banco} />

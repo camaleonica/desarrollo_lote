@@ -1,6 +1,93 @@
 # Loté
 
-## Cómo levantar la app
+Plataforma de subastas mobile-first (React Native + Expo) con API Node.js + MySQL.
+
+## Requisitos
+
+- Node.js 18+
+- XAMPP (MySQL) para desarrollo local
+- Expo Go en el celular (opcional)
+
+## Backend (XAMPP + API local)
+
+1. Iniciá **MySQL** en XAMPP.
+2. Configurá el entorno:
+
+```bash
+cd backend
+Copy-Item .env.example .env   # Windows
+# Editá DB_PASSWORD y JWT secrets
+npm install
+npm run setup:db
+npm start
+```
+
+API en `http://localhost:3006`.
+
+### Variables importantes (`backend/.env`)
+
+| Variable | Uso |
+|---|---|
+| `AUTO_APPROVE_KYC=false` | KYC manual por empleado (consigna TPO). `true` auto-aprueba en dev |
+| `ADMIN_API_KEY` | Header `X-Admin-Key` para `/admin/*` y panel web |
+| `SMTP_*` | Email real (sin SMTP → log en consola) |
+
+### Email real (Gmail)
+
+1. En [Google Cuenta → Seguridad](https://myaccount.google.com/security) activá **verificación en 2 pasos**.
+2. Buscá **Contraseñas de aplicaciones** → app **Correo** → dispositivo **Otro (Loté)**.
+3. Copiá la clave de 16 caracteres en `backend/.env`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASS=abcdefghijklmnop
+EMAIL_FROM=tu_correo@gmail.com
+```
+
+4. Reiniciá el backend y probá:
+
+```bash
+cd backend
+npm run test:email
+```
+
+5. En la app: **Olvidé mi contraseña** → debería llegar el mail con enlace a `/reset/?token=...`.
+
+> `EMAIL_FROM` debe ser el mismo Gmail que `SMTP_USER`. Sin SMTP, el enlace solo aparece en la consola como `[email:mock]`.
+
+### Modo invitado (mobile)
+
+En WF-02 Login → **Explorar sin registrarme**: podés ver subastas, catálogos y detalle de piezas. No podés pujar ni ingresar a la sala (consigna: participar requiere registro verificado + medios de pago).
+
+### Admin / empleado de la empresa
+
+Panel web en **`http://localhost:3006/empleado/`** (clave = `ADMIN_API_KEY` en `.env`, ej. `ADMIN`):
+
+- Pantalla de login clara + menú lateral con contadores de pendientes
+- 3 pasos: KYC → artículos → medios de pago
+- Pestaña **Ayuda** con usuarios demo y flujo de recupero de contraseña
+
+- Verificar postores (KYC) y asignar categoría (`clientes.admitido`, `clientes.categoria`, `empleados.verificador`)
+- Revisar artículos (`productos.estado_solicitud`)
+- Verificar cheques certificados (`medios_pago.verificado`)
+
+Usuarios demo tras `npm run setup:db` (contraseña `Demo1234!`):
+
+| Email | Uso |
+|---|---|
+| `pendiente@lote.app` | KYC pendiente (aparece en panel admin) |
+| `postor@lote.app` | Postor categoría plata, con medio de pago |
+
+```bash
+curl -H "X-Admin-Key: TU_CLAVE" http://localhost:3006/admin/kyc/pending
+curl -X PATCH -H "X-Admin-Key: TU_CLAVE" -H "Content-Type: application/json" \
+  -d '{"admitido":"si","categoria":"plata"}' http://localhost:3006/admin/clients/ID/kyc
+```
+
+## Mobile
 
 ```bash
 cd mobile
@@ -8,53 +95,50 @@ npm install
 npm start
 ```
 
-Si probás en el celular, cambiá la IP en `mobile/src/config/api.js`.
+### Conectar al backend
 
-### Backend
-
-**1. Instalar MySQL** (si no lo tenés):
-
-- Opción fácil: [XAMPP](https://www.apachefriends.org/) → instalá y en el panel iniciá **MySQL**
-- Opción directa: [MySQL Community Server](https://dev.mysql.com/downloads/mysql/)
-
-**2. Configurar y levantar:**
+- **Emulador Android:** `10.0.2.2:3006` (automático)
+- **Celular físico:** editá `LOCAL_IP` en `mobile/src/config/api.js`
+- **Render (producción):** definí `EXPO_PUBLIC_API_URL=https://tu-api.onrender.com`
 
 ```bash
-cd backend
-cp .env.example .env   # en Windows: Copy-Item .env.example .env
-```
-
-Editá `backend/.env` con tu usuario y contraseña de MySQL (`DB_PASSWORD`).
-
-```bash
-npm install
-npm run setup:db    # crea lote_db y las tablas
+# Ejemplo Render
+set EXPO_PUBLIC_API_URL=https://lote-api.onrender.com
 npm start
 ```
 
-API en `http://localhost:3006` (puerto definido en `.env`).
+## Deploy en Render
 
-## Qué ya hice
+1. Subí el repo a GitHub.
+2. En Render: **New Blueprint** → seleccioná `render.yaml`.
+3. Configurá MySQL externo (PlanetScale, Railway, Aiven, etc.) y completá las env vars.
+4. Ejecutá el schema contra esa base (`npm run setup:db` apuntando al host remoto).
 
-Armé la app en **React Native + Expo** siguiendo los wireframes (WF-01 a WF-16). Por ahora tengo andando:
+## Funcionalidades implementadas (TPO)
 
-- **Auth:** splash, login, registro en dos pasos, recuperar contraseña, medios de pago
-- **Subastas:** home con búsqueda y filtros, detalle de pieza, sala en vivo (puja + diálogos propios), resumen de compra y confirmación de entrega
-- **Resto:** mis pujas, solicitud y listado de artículos, perfil
-- **Diseño:** paleta del Figma (celeste, rosita, bordó), tipografía Roboto, componentes M3 (`Surface`, chips, tiles, etc.), popups custom en lugar de los `Alert` nativos
-- **Estructura:** ver [docs/estructura.md](docs/estructura.md)
-- **Docs:** wireframes, mapa de pantallas y manejo de errores en `docs/`
+- Modo invitado: explorar subastas sin participar
+- Registro 2 etapas + KYC verificado por empleado + medios de pago (tarjeta, cuenta, cheque certificado)
+- Panel empleado web: verificaciones KYC, artículos y medios de pago
+- Subastas con catálogo, categorías, moneda ARS/USD
+- Pujas con reglas ±1%/±20% (excepto oro/platino)
+- WebSocket para actualizaciones en vivo
+- Compra, entrega, multas automáticas por impago (72 h)
+- Solicitud de artículos con mínimo 6 fotos
+- Dueño: ubicación en depósito y póliza (`GET /items/:id/tracking`)
+- Cierre de subasta: empresa compra al precio base si no hay pujas
 
-La navegación va de login → home → subasta → puja → resumen. Registrate con email y contraseña (mín. 8 caracteres + un número).
+## Stack mobile (consigna del profe)
 
-## Qué falta
+Ya incluido en el proyecto:
 
-- Pantalla de **catálogo de subasta** (WF-07), hoy el detalle de pieza hace las veces de las dos
-- Pantalla de **multas** (WF-13)
-- Completar campos que faltan en registro, medios de pago, home y perfil según el wireframe
-- Pulir WF-09 (timer, streaming) y métricas de mis pujas
-- Integrar mobile con el backend (auth, subastas, pujas, artículos, pagos)
+- `@react-navigation/native`, `@react-navigation/native-stack`, `@react-navigation/bottom-tabs`
+- `react-native-screens`, `react-native-safe-area-context`
+- `@react-native-async-storage/async-storage`
 
----
+`react-native-paper` no se usa: la UI sigue el diseño Figma propio del equipo.
 
-Más detalle: [docs/estructura.md](docs/estructura.md) · [docs/manejo-errores.md](docs/manejo-errores.md) · [docs/mapa-pantallas.md](docs/mapa-pantallas.md) · [docs/wireframes.md](docs/wireframes.md)
+## Documentación
+
+- [docs/wireframes.md](docs/wireframes.md)
+- [docs/mapa-pantallas.md](docs/mapa-pantallas.md)
+- [docs/manejo-errores.md](docs/manejo-errores.md)

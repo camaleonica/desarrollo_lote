@@ -7,8 +7,10 @@ import { Button } from '../../components/ui/Button';
 import { ListTile } from '../../components/m3/ListTile';
 import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';
-import { fetchMyItems } from '../../services/loteApi';
+import { fetchMyItems, respondItemConditions } from '../../services/loteApi';
 import { ApiError } from '../../services/api';
+import { GuestGate } from '../../components/auth/GuestGate';
+import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 
 const statusIcons = {
@@ -19,6 +21,7 @@ const statusIcons = {
 };
 
 export function ItemsScreen({ navigation }) {
+  const { isGuest } = useAuth();
   const { showDialog } = useDialog();
   const [items, setItems] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,9 +41,20 @@ export function ItemsScreen({ navigation }) {
   }
 
   useEffect(() => {
+    if (isGuest) return undefined;
     const unsubscribe = navigation.addListener('focus', load);
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, isGuest]);
+
+  if (isGuest) {
+    return (
+      <GuestGate
+        title="Mis artículos"
+        subtitle="Estado de tus solicitudes"
+        message="Para solicitar artículos y seguir su revisión por la empresa necesitás registrarte."
+      />
+    );
+  }
 
   return (
     <ScreenLayout shape="lavender" safe>
@@ -60,12 +74,39 @@ export function ItemsScreen({ navigation }) {
           </Surface>
         }
         renderItem={({ item }) => (
-          <ListTile
-            title={item.titulo}
-            subtitle={`${item.categoria} · Estado: ${item.estado}`}
-            icon={statusIcons[item.estado] || 'inventory-2'}
-            iconColor={colors.teal}
-          />
+          <Surface style={styles.itemCard}>
+            <ListTile
+              title={item.titulo}
+              subtitle={`Estado: ${item.estado}${item.subasta ? ` · Subasta: ${item.subasta.nombre}` : ''}`}
+              icon={statusIcons[item.estado] || 'inventory-2'}
+              iconColor={colors.teal}
+            />
+            {item.deposito_ubicacion ? (
+              <Text style={styles.meta}>Depósito: {item.deposito_ubicacion}</Text>
+            ) : null}
+            {item.seguro ? (
+              <Text style={styles.meta}>Póliza: {item.seguro}</Text>
+            ) : null}
+            {item.estado === 'aceptado' && item.subasta ? (
+              <View style={styles.actions}>
+                <Button
+                  title="Aceptar condiciones"
+                  onPress={async () => {
+                    await respondItemConditions(item.id, true);
+                    load();
+                  }}
+                />
+                <Button
+                  title="Rechazar"
+                  variant="outline"
+                  onPress={async () => {
+                    await respondItemConditions(item.id, false);
+                    load();
+                  }}
+                />
+              </View>
+            ) : null}
+          </Surface>
         )}
       />
     </ScreenLayout>
@@ -75,6 +116,9 @@ export function ItemsScreen({ navigation }) {
 const styles = StyleSheet.create({
   headerRow: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   list: { padding: spacing.lg },
+  itemCard: { marginBottom: spacing.md, gap: spacing.sm },
+  meta: { ...typography.captionMd, paddingHorizontal: spacing.sm },
+  actions: { gap: spacing.sm, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
   emptyCard: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl },
   empty: { ...typography.captionMd, textAlign: 'center' },
 });

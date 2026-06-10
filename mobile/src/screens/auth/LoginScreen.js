@@ -12,7 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 
 export function LoginScreen({ navigation }) {
-  const { setUser, setPendingPaymentSetup } = useAuth();
+  const { setUser, setPendingPaymentSetup, enterAsGuest } = useAuth();
   const { showDialog } = useDialog();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,6 +81,13 @@ export function LoginScreen({ navigation }) {
 
           <Button title="Ingresar" onPress={handleLogin} loading={loading} />
 
+          <Button
+            title="Explorar sin registrarme"
+            variant="outline"
+            onPress={enterAsGuest}
+            style={styles.guestButton}
+          />
+
           <TouchableOpacity onPress={() => navigation.navigate('RegisterStep1')} style={styles.registerWrap}>
             <Text style={styles.registerText}>
               ¿No tenés cuenta? <Text style={styles.registerBold}>Registrate</Text>
@@ -110,6 +117,9 @@ const styles = StyleSheet.create({
   registerWrap: {
     marginTop: spacing.lg,
     alignItems: 'center',
+  },
+  guestButton: {
+    marginTop: spacing.sm,
   },
   registerText: {
     ...typography.caption,
