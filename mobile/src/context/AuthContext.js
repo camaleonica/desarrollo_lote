@@ -1,9 +1,20 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { getToken, clearSession } from '../services/api';
 import { getProfile, fetchPaymentMethods, logout } from '../services/loteApi';
 import { ApiError } from '../services/api';
 
 const AuthContext = createContext(null);
+
+const PROFILE_POLL_MS = 15000;
+
+function normalizeProfile(profile) {
+  if (!profile) return null;
+  return {
+    ...profile,
+    id: profile.id != null ? Number(profile.id) : profile.id,
+  };
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -13,6 +24,8 @@ export function AuthProvider({ children }) {
   const [pendingPaymentSetup, setPendingPaymentSetup] = useState(false);
   const [initialAppRoute, setInitialAppRoute] = useState(null);
   const [authEntryRoute, setAuthEntryRoute] = useState('Login');
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
     (async () => {
@@ -25,11 +38,12 @@ export function AuthProvider({ children }) {
 
         if (methods.length === 0) {
           setPendingPaymentSetup(true);
+          setUser(normalizeProfile(profile));
           return;
         }
 
         setPendingPaymentSetup(false);
-        setUser(profile);
+        setUser(normalizeProfile(profile));
       } catch {
         await clearSession();
         setPendingPaymentSetup(false);
@@ -39,21 +53,53 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return null;
+
+    try {
+      const profile = normalizeProfile(await getProfile());
+      setUser(profile);
+      return profile;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && userRef.current?.id) {
+        refreshUser();
+      }
+    });
+    return () => sub.remove();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (isGuest || !user?.id) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      refreshUser();
+    }, PROFILE_POLL_MS);
+
+    return () => clearInterval(timer);
+  }, [isGuest, user?.id, refreshUser]);
+
   const completeRegistration = useCallback(async () => {
-    const profile = await getProfile();
-    const userId = profile?.id != null ? Number(profile.id) : null;
+    const profile = normalizeProfile(await getProfile());
+    const userId = profile?.id;
 
     if (!userId) {
       throw new ApiError('No se pudo cargar tu perfil. Intentá de nuevo.');
     }
 
-    const normalizedProfile = { ...profile, id: userId };
-
     setPendingPaymentSetup(false);
     setRegisterDraft({});
     setIsGuest(false);
-    setUser(normalizedProfile);
-    return normalizedProfile;
+    setUser(profile);
+    return profile;
   }, []);
 
   const canAccessApp = Boolean(user?.id) && !pendingPaymentSetup;
@@ -80,6 +126,7 @@ export function AuthProvider({ children }) {
     () => ({
       user,
       setUser,
+      refreshUser,
       loading,
       isGuest,
       canAccessApp,
@@ -107,6 +154,7 @@ export function AuthProvider({ children }) {
     }),
     [
       user,
+      refreshUser,
       loading,
       isGuest,
       canAccessApp,

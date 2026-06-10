@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { FormScreen } from '../../components/layout/FormScreen';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { validateLoginForm } from '../../utils/validation';
 import { login, fetchPaymentMethods } from '../../services/loteApi';
@@ -18,6 +19,7 @@ export function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef(null);
 
   async function handleLogin() {
     const fieldErrors = validateLoginForm({ email, password });
@@ -28,7 +30,12 @@ export function LoginScreen({ navigation }) {
     try {
       const data = await login(email, password);
       const methods = await fetchPaymentMethods();
+      const normalizedUser = {
+        ...data.user,
+        id: data.user?.id != null ? Number(data.user.id) : data.user?.id,
+      };
       if (methods.length === 0) {
+        setUser(normalizedUser);
         setPendingPaymentSetup(true);
         navigation.reset({
           index: 0,
@@ -37,10 +44,7 @@ export function LoginScreen({ navigation }) {
         return;
       }
       setPendingPaymentSetup(false);
-      setUser({
-        ...data.user,
-        id: data.user?.id != null ? Number(data.user.id) : data.user?.id,
-      });
+      setUser(normalizedUser);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         showDialog({ title: 'Error', message: 'Usuario o contraseña incorrectos', variant: 'error' });
@@ -54,53 +58,54 @@ export function LoginScreen({ navigation }) {
 
   return (
     <ScreenLayout shape="lightBlue" safe>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ScreenHeader title="Accedé a tu cuenta" shape="brown" />
+      <FormScreen contentContainerStyle={styles.container}>
+        <ScreenHeader title="Accedé a tu cuenta" shape="brown" />
 
-          <Input
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="tu@email.com"
-            keyboardType="email-address"
-            error={errors.email}
-          />
-          <Input
-            label="Contraseña"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••"
-            secureTextEntry
-            error={errors.password}
-          />
+        <Input
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="tu@email.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={errors.email}
+          nextInputRef={passwordRef}
+        />
+        <Input
+          ref={passwordRef}
+          label="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="••••••"
+          secureTextEntry
+          error={errors.password}
+          onSubmitEditing={handleLogin}
+        />
 
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
-          </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
+        </TouchableOpacity>
 
-          <Button title="Ingresar" onPress={handleLogin} loading={loading} />
+        <Button title="Ingresar" onPress={handleLogin} loading={loading} />
 
-          <Button
-            title="Explorar sin registrarme"
-            variant="outline"
-            onPress={enterAsGuest}
-            style={styles.guestButton}
-          />
+        <Button
+          title="Explorar sin registrarme"
+          variant="outline"
+          onPress={enterAsGuest}
+          style={styles.guestButton}
+        />
 
-          <TouchableOpacity onPress={() => navigation.navigate('RegisterStep1')} style={styles.registerWrap}>
-            <Text style={styles.registerText}>
-              ¿No tenés cuenta? <Text style={styles.registerBold}>Registrate</Text>
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <TouchableOpacity onPress={() => navigation.navigate('RegisterStep1')} style={styles.registerWrap}>
+          <Text style={styles.registerText}>
+            ¿No tenés cuenta? <Text style={styles.registerBold}>Registrate</Text>
+          </Text>
+        </TouchableOpacity>
+      </FormScreen>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   container: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
@@ -109,7 +114,6 @@ const styles = StyleSheet.create({
   },
   link: {
     ...typography.caption,
-    fontSize: 14,
     color: colors.teal,
     textAlign: 'right',
     marginBottom: spacing.lg,
@@ -123,11 +127,10 @@ const styles = StyleSheet.create({
   },
   registerText: {
     ...typography.caption,
-    fontSize: 14,
     color: colors.textMuted,
   },
   registerBold: {
-    fontFamily: fonts.thinItalic,
+    fontFamily: fonts.italic,
     color: colors.brown,
   },
 });

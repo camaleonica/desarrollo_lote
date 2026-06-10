@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, Image } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getPieceImageSource } from '../../assets/auctionImages';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
@@ -13,14 +14,35 @@ import { ApiError } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 import { GuestBanner } from '../../components/auth/GuestBanner';
+import { KycStatusBanner, isKycApproved } from '../../components/auth/KycStatusBanner';
+import { PaymentDefaultBanner } from '../../components/auth/PaymentDefaultBanner';
 
 export function AuctionCatalogScreen({ route, navigation }) {
   const { id } = route.params;
-  const { isGuest, openAuthEntry } = useAuth();
+  const { isGuest, openAuthEntry, user, refreshUser } = useAuth();
   const { showDialog } = useDialog();
   const [auction, setAuction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isGuest) return undefined;
+      let active = true;
+      (async () => {
+        await refreshUser();
+        if (!active) return;
+        try {
+          setAuction(await fetchAuction(id, { auth: true }));
+        } catch {
+          // el listado inicial ya mostró error si falló
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [id, isGuest, refreshUser])
+  );
 
   useEffect(() => {
     (async () => {
@@ -72,10 +94,14 @@ export function AuctionCatalogScreen({ route, navigation }) {
   const piezaActualId = auction.pieza_actual?.id;
   const puedeIngresar = Boolean(auction.puede_ingresar ?? auction.puedeIngresar);
   const agotada = Boolean(auction.agotada);
-  const canEnter = !isGuest && puedeIngresar && !agotada;
+  const kycOk = isGuest || isKycApproved(user);
+  const tieneDefault = Boolean(user?.medio_pago_default_id);
+  const canEnter = !isGuest && kycOk && tieneDefault && puedeIngresar && !agotada;
 
   let enterTitle = 'Ingresar a la subasta';
   if (isGuest) enterTitle = 'Registrate para participar';
+  else if (!kycOk) enterTitle = 'Verificación pendiente';
+  else if (!tieneDefault) enterTitle = 'Elegí medio de pago';
   else if (agotada) enterTitle = 'Subasta sin stock';
   else if (!puedeIngresar) enterTitle = 'No podés ingresar';
 
@@ -93,6 +119,8 @@ export function AuctionCatalogScreen({ route, navigation }) {
         ListHeaderComponent={
           <View>
             <GuestBanner compact />
+            <KycStatusBanner compact />
+            <PaymentDefaultBanner compact />
             <Surface style={styles.infoCard}>
               <Text style={styles.infoTitle}>{auction.titulo}</Text>
               <Text style={styles.meta}>📅 {auction.fecha} · {auction.hora}</Text>
@@ -102,7 +130,17 @@ export function AuctionCatalogScreen({ route, navigation }) {
               {agotada ? (
                 <Text style={styles.blocked}>{auction.motivo_agotada || 'Subasta sin piezas disponibles'}</Text>
               ) : null}
-              {!agotada && !isGuest && !puedeIngresar ? (
+              {!agotada && !isGuest && kycOk && !tieneDefault ? (
+                <Text style={styles.blocked}>
+                  Elegí un medio de pago predeterminado en Perfil → Medios de pago.
+                </Text>
+              ) : null}
+              {!agotada && !isGuest && !kycOk ? (
+                <Text style={styles.blocked}>
+                  Tu identidad debe ser aprobada por un empleado antes de participar.
+                </Text>
+              ) : null}
+              {!agotada && !isGuest && kycOk && tieneDefault && !puedeIngresar ? (
                 <Text style={styles.blocked}>
                   {auction.motivo_bloqueo || 'No cumplís los requisitos para participar'}
                 </Text>

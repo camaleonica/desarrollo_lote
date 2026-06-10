@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { FormScreen } from '../../components/layout/FormScreen';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { spacing, typography, colors } from '../../theme';
@@ -22,6 +23,10 @@ export function RegisterStep2Screen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [generatingProvisional, setGeneratingProvisional] = useState(false);
+
+  const provisionalRef = useRef(null);
+  const newPasswordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
 
   async function handleGenerateProvisional(nextEmail = email) {
     const trimmed = nextEmail.trim();
@@ -142,9 +147,23 @@ export function RegisterStep2Screen({ navigation }) {
 
       setRegisterDraft({});
       setPendingPaymentSetup(true);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'PaymentMethods', params: { fromRegistration: true } }],
+      showDialog({
+        title: 'Registro enviado',
+        message:
+          'Tu identidad quedó en revisión. Un empleado te habilitará en hasta 24 h. Ahora agregá al menos un medio de pago.',
+        variant: 'success',
+        buttons: [
+          {
+            text: 'Continuar',
+            style: 'primary',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'PaymentMethods', params: { fromRegistration: true } }],
+              });
+            },
+          },
+        ],
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -169,9 +188,8 @@ export function RegisterStep2Screen({ navigation }) {
 
   return (
     <ScreenLayout shape="lavender" safe>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScreenHeader title="Seguridad" subtitle="Paso 2 de 2" shape="brown" onBack={() => navigation.goBack()} embedded />
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScreenHeader title="Seguridad" subtitle="Paso 2 de 2" shape="brown" onBack={() => navigation.goBack()} embedded />
+      <FormScreen contentContainerStyle={styles.container}>
           <Text style={styles.intro}>Completá tu registro</Text>
           <Text style={styles.hint}>
             Ingresá tu email para recibir una contraseña provisoria. Luego definí tu contraseña definitiva antes de
@@ -199,7 +217,9 @@ export function RegisterStep2Screen({ navigation }) {
             onBlur={handleEmailBlur}
             placeholder="tu@mail.com"
             keyboardType="email-address"
+            autoCapitalize="none"
             error={errors.email}
+            nextInputRef={provisionalRef}
           />
 
           {provisionalPassword ? (
@@ -221,27 +241,33 @@ export function RegisterStep2Screen({ navigation }) {
           )}
 
           <Input
+            ref={provisionalRef}
             label="Contraseña provisoria"
             value={provisionalInput}
             onChangeText={setProvisionalInput}
             placeholder="Reingresá la contraseña provisoria"
             secureTextEntry
             error={errors.provisionalPassword}
+            nextInputRef={newPasswordRef}
           />
           <Input
+            ref={newPasswordRef}
             label="Nueva contraseña"
             value={newPassword}
             onChangeText={setNewPassword}
             placeholder="Mín. 8 caracteres y un número"
             secureTextEntry
             error={errors.newPassword}
+            nextInputRef={confirmPasswordRef}
           />
           <Input
+            ref={confirmPasswordRef}
             label="Confirmar contraseña"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
             error={errors.confirmPassword}
+            onSubmitEditing={handleRegister}
           />
 
           <View style={styles.note}>
@@ -249,14 +275,12 @@ export function RegisterStep2Screen({ navigation }) {
           </View>
 
           <Button title="Guardar y continuar" onPress={handleRegister} loading={loading} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScreen>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.sm },
   intro: { ...typography.titleSm, fontSize: 20, color: colors.brown, marginBottom: spacing.xs },
   hint: { ...typography.body, color: colors.textMuted, lineHeight: 22, marginBottom: spacing.sm },

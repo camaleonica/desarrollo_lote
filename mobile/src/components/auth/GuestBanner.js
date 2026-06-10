@@ -31,6 +31,6 @@ const styles = StyleSheet.create({
     borderColor: colors.lavender,
   },
   compact: { marginBottom: spacing.sm },
-  text: { ...typography.captionMd, flex: 1, color: colors.textPrimary },
+  text: { ...typography.captionMd, flex: 1, color: colors.text },
   link: { ...typography.label, color: colors.teal },
 });

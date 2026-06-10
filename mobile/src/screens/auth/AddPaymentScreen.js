@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, KeyboardAvoidingView, Platform, View, TouchableOpacity, Text } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { FormScreen } from '../../components/layout/FormScreen';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { spacing, typography, colors } from '../../theme';
@@ -33,6 +34,9 @@ export function AddPaymentScreen({ navigation, route }) {
   const [montoReservado, setMontoReservado] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const digitosRef = useRef(null);
+  const cuentaRef = useRef(null);
 
   const isCard = type === 'credit_card';
   const isCheck = type === 'certified_check';
@@ -102,15 +106,14 @@ export function AddPaymentScreen({ navigation, route }) {
 
   return (
     <ScreenLayout shape="lavender" safe>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScreenHeader
-          title="Nuevo medio de pago"
-          subtitle="Elegí el tipo y completá los datos"
-          shape="brown"
-          onBack={() => navigation.goBack()}
-          embedded
-        />
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScreenHeader
+        title="Nuevo medio de pago"
+        subtitle="Elegí el tipo y completá los datos"
+        shape="brown"
+        onBack={() => navigation.goBack()}
+        embedded
+      />
+      <FormScreen contentContainerStyle={styles.container}>
           <Text style={styles.sectionLabel}>Tipo de medio</Text>
           <View style={styles.typeRow}>
             {PAYMENT_TYPES.map(({ id, label, icon }) => {
@@ -152,8 +155,10 @@ export function AddPaymentScreen({ navigation, route }) {
                 onChangeText={setMarcaTarjeta}
                 placeholder="Visa, Mastercard..."
                 optional
+                nextInputRef={digitosRef}
               />
               <Input
+                ref={digitosRef}
                 label="Últimos 4 dígitos"
                 value={ultimosDigitos}
                 onChangeText={setUltimosDigitos}
@@ -161,6 +166,7 @@ export function AddPaymentScreen({ navigation, route }) {
                 keyboardType="numeric"
                 maxLength={4}
                 error={errors.ultimos_digitos || errors.card_last4}
+                onSubmitEditing={handleSave}
               />
             </>
           ) : isCheck ? (
@@ -171,31 +177,39 @@ export function AddPaymentScreen({ navigation, route }) {
               placeholder="50000"
               keyboardType="numeric"
               error={errors.monto_reservado}
+              onSubmitEditing={handleSave}
             />
           ) : (
             <>
-              <Input label="Banco" value={banco} onChangeText={setBanco} placeholder="Banco Nación" error={errors.banco} />
               <Input
+                label="Banco"
+                value={banco}
+                onChangeText={setBanco}
+                placeholder="Banco Nación"
+                error={errors.banco}
+                nextInputRef={cuentaRef}
+              />
+              <Input
+                ref={cuentaRef}
                 label="Número de cuenta"
                 value={numeroCuenta}
                 onChangeText={setNumeroCuenta}
                 placeholder="1234567890"
                 keyboardType="numeric"
                 error={errors.numero_cuenta || errors.account_number}
+                onSubmitEditing={handleSave}
               />
             </>
           )}
 
           <Button title="Guardar" onPress={handleSave} loading={loading} />
           <Button title="Cancelar" variant="outline" onPress={() => navigation.goBack()} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScreen>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
   sectionLabel: { ...typography.label, color: colors.textMuted, marginTop: spacing.xs },
   typeRow: { flexDirection: 'row', gap: spacing.sm },

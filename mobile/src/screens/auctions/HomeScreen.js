@@ -12,7 +12,10 @@ import { Surface } from '../../components/m3/Surface';
 import { colors, spacing, typography } from '../../theme';
 import { fetchAuctions, fetchCategories, resolveMediaUrl } from '../../services/loteApi';
 import { GuestBanner } from '../../components/auth/GuestBanner';
+import { KycStatusBanner, isKycApproved } from '../../components/auth/KycStatusBanner';
+import { PaymentDefaultBanner } from '../../components/auth/PaymentDefaultBanner';
 import { ApiError } from '../../services/api';
+import { useProfileSync } from '../../hooks/useProfileSync';
 
 const MEMBERSHIP_LABELS = {
   comun: 'Común',
@@ -32,8 +35,9 @@ function SectionHeader({ title, count }) {
 }
 
 export function HomeScreen({ navigation }) {
-  const { user, isGuest } = useAuth();
+  const { user, isGuest, refreshUser } = useAuth();
   const { showDialog } = useDialog();
+  useProfileSync({ notifyOnKycApproval: true });
   const [auctions, setAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -43,6 +47,9 @@ export function HomeScreen({ navigation }) {
 
   async function loadData() {
     try {
+      if (!isGuest) {
+        await refreshUser();
+      }
       const [list, cats] = await Promise.all([
         fetchAuctions({ auth: !isGuest }),
         fetchCategories(),
@@ -119,6 +126,8 @@ export function HomeScreen({ navigation }) {
         ListHeaderComponent={
           <View style={styles.headerBlock}>
             <GuestBanner />
+            <KycStatusBanner compact />
+            <PaymentDefaultBanner compact />
             <Surface style={styles.userCard}>
               <View style={styles.userRow}>
                 <View style={styles.avatar}>
@@ -132,6 +141,7 @@ export function HomeScreen({ navigation }) {
                   <Text style={styles.userGreeting}>Hola, {userName}</Text>
                   <Text style={styles.userMeta}>
                     Tu membresía: {membership}
+                    {!isGuest && user && !isKycApproved(user) ? ' · Verificación pendiente' : ''}
                   </Text>
                 </View>
                 <MaterialIcons name="notifications-none" size={24} color={colors.textMuted} />

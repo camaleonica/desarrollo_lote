@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Image, StyleSheet, useWindowDimensions, Animated, Easing } from 'react-native';
+import { View, Text, Image, StyleSheet, useWindowDimensions, Animated, Easing, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors, fonts } from '../../theme';
 
@@ -113,6 +113,10 @@ export function SplashScreen({ onFinish }) {
         resizeMode="contain"
         accessibilityIgnoresInvertColors
       />
+      <View style={styles.loaderWrap}>
+        <ActivityIndicator size="small" color={colors.brown} />
+        <Text style={styles.loaderText}>Cargando…</Text>
+      </View>
     </View>
   );
 }
@@ -139,5 +143,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -4,
     bottom: 0,
+  },
+  loaderWrap: {
+    position: 'absolute',
+    bottom: 48,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 8,
+  },
+  loaderText: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });

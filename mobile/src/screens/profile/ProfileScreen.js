@@ -14,6 +14,9 @@ import { useDialog } from '../../context/DialogContext';
 import { disconnectSocket } from '../../services/auctionSocket';
 import { updateProfile, uploadAvatar, resolveMediaUrl } from '../../services/loteApi';
 import { ApiError } from '../../services/api';
+import { KycStatusBanner } from '../../components/auth/KycStatusBanner';
+import { PaymentDefaultBanner } from '../../components/auth/PaymentDefaultBanner';
+import { useProfileSync } from '../../hooks/useProfileSync';
 
 function GuestProfile() {
   const { openAuthEntry } = useAuth();
@@ -40,6 +43,8 @@ export function ProfileScreen() {
   const { showDialog } = useDialog();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [togglingNotif, setTogglingNotif] = useState(false);
+
+  useProfileSync();
 
   if (isGuest) {
     return <GuestProfile />;
@@ -125,6 +130,8 @@ export function ProfileScreen() {
     <ScreenLayout shape="lavender" safe>
       <ScreenHeader title="Perfil" subtitle="Tu cuenta en Loté" shape="teal" embedded />
       <ScrollView contentContainerStyle={styles.content}>
+        <KycStatusBanner compact />
+        <PaymentDefaultBanner compact />
         <Surface style={styles.profileCard}>
           <Pressable onPress={handlePickAvatar} style={styles.avatarWrap} disabled={uploadingPhoto}>
             {avatarUri ? (
@@ -144,6 +151,14 @@ export function ProfileScreen() {
           <Text style={styles.name}>{user?.nombre} {user?.apellido}</Text>
           <Text style={styles.email}>{user?.email}</Text>
           <Text style={styles.meta}>Categoría: {user?.categoria || 'común'}</Text>
+          <Text style={styles.meta}>
+            Verificación:{' '}
+            {user?.kyc_status === 'approved'
+              ? 'Aprobada'
+              : user?.kyc_status === 'submitted'
+                ? 'En revisión'
+                : 'Pendiente'}
+          </Text>
         </Surface>
 
         <ListTile

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { FormScreen } from '../../components/layout/FormScreen';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { spacing } from '../../theme';
@@ -48,25 +49,31 @@ export function ForgotPasswordScreen({ navigation }) {
 
   return (
     <ScreenLayout shape="lightBlue" safe>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScreenHeader
-          title="Recuperar contraseña"
-          subtitle="Te enviaremos un enlace a tu email"
-          shape="brown"
-          onBack={() => navigation.goBack()}
-          embedded
+      <ScreenHeader
+        title="Recuperar contraseña"
+        subtitle="Te enviaremos un enlace a tu email (se abre en el navegador)"
+        shape="brown"
+        onBack={() => navigation.goBack()}
+        embedded
+      />
+      <FormScreen contentContainerStyle={styles.container}>
+        <Input
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="tu@email.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={error}
+          onSubmitEditing={handleSend}
         />
-        <View style={styles.container}>
-          <Input label="Email" value={email} onChangeText={setEmail} placeholder="tu@email.com" error={error} />
-          <Button title="Enviar" onPress={handleSend} loading={loading} />
-          <Button title="Volver al login" variant="outline" onPress={() => navigation.goBack()} />
-        </View>
-      </KeyboardAvoidingView>
+        <Button title="Enviar" onPress={handleSend} loading={loading} />
+        <Button title="Volver al login" variant="outline" onPress={() => navigation.goBack()} />
+      </FormScreen>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.sm },
 });

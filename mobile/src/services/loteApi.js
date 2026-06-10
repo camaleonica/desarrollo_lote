@@ -23,6 +23,9 @@ function mapUser(user) {
     categoria: user.categoria || 'comun',
     notificaciones: Boolean(user.notificaciones),
     foto_perfil: user.foto_perfil || null,
+    medio_pago_default_id: user.medio_pago_default_id != null
+      ? Number(user.medio_pago_default_id)
+      : null,
   };
 }
 
@@ -182,6 +185,15 @@ export async function addPaymentMethod(payload) {
 
 export async function deletePaymentMethod(id) {
   return apiRequest(`/payment-methods/${id}`, { method: 'DELETE', auth: true });
+}
+
+export async function setDefaultPaymentMethod(id) {
+  const data = await apiRequest('/users/me', {
+    method: 'PATCH',
+    auth: true,
+    body: { medio_pago_default_id: id },
+  });
+  return mapUser(data.user);
 }
 
 // ─── Subastas ────────────────────────────────────────────────
