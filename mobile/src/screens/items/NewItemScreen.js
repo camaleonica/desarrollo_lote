@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { ScreenLayout } from '../../components/layout/ScreenLayout';
+import { FormScreen } from '../../components/layout/FormScreen';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { spacing, typography, colors } from '../../theme';
@@ -77,9 +78,8 @@ export function NewItemScreen({ navigation }) {
 
   return (
     <ScreenLayout shape="lavender" safe>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScreenHeader title="Solicitud de artículo" subtitle="Completá los datos para publicar" shape="brown" onBack={() => navigation.goBack()} embedded />
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScreenHeader title="Solicitud de artículo" subtitle="Completá los datos para publicar" shape="brown" onBack={() => navigation.goBack()} embedded />
+      <FormScreen contentContainerStyle={styles.container}>
           <Input label="Descripción" value={descripcion} onChangeText={setDescripcion} placeholder="Describí el artículo" multiline error={errors.descripcion} />
           <Input label="Historia" value={historia} onChangeText={setHistoria} placeholder="Contexto, procedencia, curiosidades" multiline optional />
           <Input label="Datos relevantes" value={datosRelevantes} onChangeText={setDatosRelevantes} placeholder="Artista, fecha, materiales..." multiline optional />
@@ -97,14 +97,12 @@ export function NewItemScreen({ navigation }) {
           {errors.legal ? <Text style={styles.error}>{errors.legal}</Text> : null}
 
           <Button title="Enviar solicitud" onPress={handleSubmit} loading={loading} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScreen>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.sm },
   label: { ...typography.label, color: colors.textMuted },
   checkRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginVertical: spacing.sm },

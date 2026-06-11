@@ -45,17 +45,17 @@ export const radius = {
 export { fonts, fontAssets, useAppFonts } from './fonts';
 
 export const typography = {
-  brandXL: { fontFamily: fonts.thinItalic, fontSize: 56, color: colors.text },
-  brandLG: { fontFamily: fonts.thinItalic, fontSize: 42, color: colors.text },
-  brandMD: { fontFamily: fonts.thinItalic, fontSize: 32, color: colors.text },
+  brandXL: { fontFamily: fonts.italic, fontSize: 56, color: colors.text },
+  brandLG: { fontFamily: fonts.italic, fontSize: 42, color: colors.text },
+  brandMD: { fontFamily: fonts.italic, fontSize: 32, color: colors.text },
   title: { fontFamily: fonts.regular, fontSize: 24, color: colors.brown },
   titleSm: { fontFamily: fonts.regular, fontSize: 22, color: colors.brown },
   subtitle: { fontFamily: fonts.regular, fontSize: 18, color: colors.text },
   body: { fontFamily: fonts.regular, fontSize: 16, color: colors.text },
   bodyBold: { fontFamily: fonts.regular, fontSize: 16, color: colors.text },
-  label: { fontFamily: fonts.thinItalic, fontSize: 14, color: colors.text },
-  caption: { fontFamily: fonts.thinItalic, fontSize: 12, color: colors.textMuted },
-  captionMd: { fontFamily: fonts.thinItalic, fontSize: 14, color: colors.textMuted },
+  label: { fontFamily: fonts.italic, fontSize: 16, color: colors.text },
+  caption: { fontFamily: fonts.italic, fontSize: 14, color: colors.textMuted },
+  captionMd: { fontFamily: fonts.italic, fontSize: 16, color: colors.textMuted },
   button: { fontFamily: fonts.regular, fontSize: 16 },
   price: { fontFamily: fonts.regular, fontSize: 20, color: colors.ochre },
   priceXL: { fontFamily: fonts.regular, fontSize: 36, color: colors.brown },

@@ -261,6 +261,7 @@ export function AuctionRoomScreen({ route, navigation }) {
             onChangeText={setMonto}
             keyboardType="numeric"
             error={error}
+            onSubmitEditing={handleBid}
           />
           <Button title="Pujar" onPress={handleBid} loading={submitting} />
         </Surface>

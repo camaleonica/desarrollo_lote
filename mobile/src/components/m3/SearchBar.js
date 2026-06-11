@@ -1,4 +1,4 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Keyboard } from 'react-native';
 import { TextInput } from '../ui/LotteText';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme';
@@ -14,6 +14,8 @@ export function SearchBar({ value, onChangeText, placeholder = 'Buscar...' }) {
         placeholderTextColor={colors.textMuted}
         style={styles.input}
         returnKeyType="search"
+        blurOnSubmit
+        onSubmitEditing={() => Keyboard.dismiss()}
         clearButtonMode="while-editing"
       />
     </View>

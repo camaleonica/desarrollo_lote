@@ -81,6 +81,69 @@ async function parseResponse(response) {
   return data;
 }
 
+let refreshInFlight = null;
+
+async function refreshAccessToken() {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const refreshToken = await getRefreshToken();
+    if (!refreshToken) {
+      throw new ApiError('Tu sesión expiró. Volvé a iniciar sesión.', {
+        status: 401,
+        code: 'SESSION_EXPIRED',
+      });
+    }
+
+    let response;
+    try {
+      response = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+    } catch {
+      throw new ApiError('No se pudo renovar la sesión. Verificá que el backend esté activo.', {
+        code: 'NETWORK_ERROR',
+      });
+    }
+
+    const data = await parseResponse(response);
+    await setTokens({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    });
+    return data.accessToken;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+async function fetchWithAuthRetry(path, requestInit, { auth = false, retried = false } = {}) {
+  let response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, requestInit);
+  } catch {
+    throw new ApiError('No se pudo conectar con el servidor. Verificá que el backend esté activo.', {
+      code: 'NETWORK_ERROR',
+    });
+  }
+
+  if (response.status === 401 && auth && !retried && !path.startsWith('/auth/refresh')) {
+    await refreshAccessToken();
+    const token = await getToken();
+    const headers = { ...requestInit.headers };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetchWithAuthRetry(path, { ...requestInit, headers }, { auth, retried: true });
+  }
+
+  return parseResponse(response);
+}
+
 export async function apiRequest(path, { method = 'GET', body, auth = false } = {}) {
   const online = await checkConnection();
   if (!online) {
@@ -95,20 +158,15 @@ export async function apiRequest(path, { method = 'GET', body, auth = false } = 
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  let response;
-  try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
+  return fetchWithAuthRetry(
+    path,
+    {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch {
-    throw new ApiError('No se pudo conectar con el servidor. Verificá que el backend esté activo.', {
-      code: 'NETWORK_ERROR',
-    });
-  }
-
-  return parseResponse(response);
+    },
+    { auth }
+  );
 }
 
 export async function apiMultipartRequest(path, { method = 'POST', formData, auth = false } = {}) {
@@ -125,18 +183,13 @@ export async function apiMultipartRequest(path, { method = 'POST', formData, aut
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  let response;
-  try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
+  return fetchWithAuthRetry(
+    path,
+    {
       method,
       headers,
       body: formData,
-    });
-  } catch {
-    throw new ApiError('No se pudo conectar con el servidor. Verificá que el backend esté activo.', {
-      code: 'NETWORK_ERROR',
-    });
-  }
-
-  return parseResponse(response);
+    },
+    { auth }
+  );
 }
