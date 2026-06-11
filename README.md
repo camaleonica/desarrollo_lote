@@ -99,20 +99,7 @@ npm start
 
 - **Emulador Android:** `10.0.2.2:3006` (automático)
 - **Celular físico:** editá `LOCAL_IP` en `mobile/src/config/api.js`
-- **Render (producción):** definí `EXPO_PUBLIC_API_URL=https://tu-api.onrender.com`
-
-```bash
-# Ejemplo Render
-set EXPO_PUBLIC_API_URL=https://lote-api.onrender.com
-npm start
-```
-
-## Deploy en Render
-
-1. Subí el repo a GitHub.
-2. En Render: **New Blueprint** → seleccioná `render.yaml`.
-3. Configurá MySQL externo (PlanetScale, Railway, Aiven, etc.) y completá las env vars.
-4. Ejecutá el schema contra esa base (`npm run setup:db` apuntando al host remoto).
+- **API remota (opcional):** `EXPO_PUBLIC_API_URL=https://tu-servidor/api`
 
 ## Funcionalidades implementadas (TPO)
 
@@ -139,6 +126,8 @@ Ya incluido en el proyecto:
 
 ## Documentación
 
-- [docs/wireframes.md](docs/wireframes.md)
-- [docs/mapa-pantallas.md](docs/mapa-pantallas.md)
-- [docs/manejo-errores.md](docs/manejo-errores.md)
+- [docs/estructura.md](docs/estructura.md) — árbol del monorepo
+- [docs/wireframes.md](docs/wireframes.md) — WF-01 a WF-16
+- [docs/mapa-pantallas.md](docs/mapa-pantallas.md) — WF → pantallas del código
+- [docs/manejo-errores.md](docs/manejo-errores.md) — códigos HTTP y mensajes
+- [docs/resumen-defensa.md](docs/resumen-defensa.md) — guía oral para la entrega

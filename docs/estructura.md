@@ -1,42 +1,60 @@
 # Estructura del proyecto
 
-Monorepo con mobile (Expo), backend (Express) y documentación.
+Monorepo TPO — mobile (Expo), backend (Express + MySQL) y documentación.
 
 ```
 desarrollo_lote/
+├── README.md
+├── package.json              # Scripts: mobile, backend, setup:db
 ├── backend/
-│   ├── database/          # Esquema SQL
-│   ├── scripts/           # setup-db y utilidades
+│   ├── database/
+│   │   ├── schema.sql        # Esquema completo (fuente de verdad)
+│   │   └── seed.sql          # Datos demo
+│   ├── public/
+│   │   ├── empleado/         # Panel web KYC / artículos / pagos
+│   │   └── reset/            # Página de recupero de contraseña
+│   ├── scripts/
+│   │   ├── setup-db.js
+│   │   └── test-email.js
 │   ├── src/
-│   │   ├── config/        # DB, multer
+│   │   ├── app.js
+│   │   ├── config/           # DB, multer (avatar, DNI, productos)
 │   │   ├── controllers/
+│   │   ├── jobs/             # Cierre de subastas, multas
 │   │   ├── middleware/
 │   │   ├── routes/
-│   │   └── utils/
-│   └── uploads/           # Archivos subidos en runtime
-├── docs/                  # wireframes, mapa, manejo de errores
-├── mobile/
-│   ├── assets/
-│   │   ├── branding/      # Iconos de la app (Expo)
-│   │   ├── icons/         # SVGs en uso
-│   │   └── images/        # Imágenes (splash, subastas)
-│   ├── src/
-│   │   ├── app/           # Entrada y providers
-│   │   ├── assets/        # Registro de assets (JS)
-│   │   ├── components/
-│   │   │   ├── auction/   # Componentes de dominio
-│   │   │   ├── icons/
-│   │   │   ├── layout/
-│   │   │   ├── m3/        # Material Design 3
-│   │   │   └── ui/        # Botones, inputs, texto
-│   │   ├── config/
-│   │   ├── context/
-│   │   ├── navigation/
-│   │   ├── screens/       # Por feature (auth, auctions, …)
-│   │   ├── services/
-│   │   ├── theme/
-│   │   └── utils/
-│   ├── app.json
-│   └── index.js
-└── package.json           # Scripts del monorepo
+│   │   ├── services/         # Email, cierre, reglas de pago
+│   │   ├── utils/
+│   │   └── ws/               # WebSocket subastas
+│   └── uploads/
+│       ├── avatars/          # Runtime (no versionar fotos)
+│       ├── dni/
+│       └── demo/             # Imágenes demo de subastas
+├── docs/
+│   ├── estructura.md
+│   ├── wireframes.md
+│   ├── mapa-pantallas.md
+│   ├── manejo-errores.md
+│   └── resumen-defensa.md
+└── mobile/
+    ├── app.json
+    ├── assets/               # Branding, iconos SVG, imágenes
+    └── src/
+        ├── app/              # App.js, providers
+        ├── components/       # auth, auction, layout, m3, ui
+        ├── config/           # URL de la API
+        ├── context/          # Auth, diálogos
+        ├── hooks/
+        ├── navigation/
+        ├── screens/          # auth, auctions, activities, items, profile
+        ├── services/         # api, loteApi, auctionSocket
+        ├── theme/
+        └── utils/
 ```
+
+## Qué no va al repositorio
+
+- `backend/.env` — credenciales locales
+- `backend/uploads/avatars/*`, `backend/uploads/dni/*` — archivos de usuarios
+- `*.docx`, `tmp_docx/` — consigna y extracciones locales
+- `node_modules/`, builds de Expo

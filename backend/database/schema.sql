@@ -1,5 +1,5 @@
 -- ============================================================
---  Loté – Schema MySQL (basado en EstructuraActual.sql + extensiones móvil)
+--  Loté – Schema MySQL
 --  Ejecutar con: npm run setup:db  (recrea la base desde cero)
 -- ============================================================
 
@@ -11,7 +11,7 @@ CREATE DATABASE lote_db
 
 USE lote_db;
 
--- ── Dominio académico (EstructuraActual.sql) ─────────────────
+-- ── Dominio académico ────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS paises (
   numero        INT NOT NULL,

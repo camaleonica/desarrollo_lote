@@ -33,3 +33,9 @@ backend/.env
 backend/data/
 backend/uploads/dni/*
 !backend/uploads/dni/.gitkeep
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep
+
+# Material académico / extracciones locales (no versionar)
+*.docx
+tmp_docx/
